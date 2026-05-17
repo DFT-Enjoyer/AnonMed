@@ -3,6 +3,8 @@ from __future__ import annotations
 from anonmed.preprocessing.asr import (
     ASRNormalizationPipeline,
     ASRNormalizationResult,
+    ASRTextPreprocessingPipeline,
+    ASRTextPreprocessingResult,
     Candidate,
     CleanedText,
     DisfluencyFilter,
@@ -31,6 +33,8 @@ from anonmed.preprocessing.asr import (
 __all__: list[str] = [
     "ASRNormalizationPipeline",
     "ASRNormalizationResult",
+    "ASRTextPreprocessingPipeline",
+    "ASRTextPreprocessingResult",
     "Candidate",
     "CleanedText",
     "DisfluencyFilter",
