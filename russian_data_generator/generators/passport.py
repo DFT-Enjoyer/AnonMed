@@ -5,13 +5,13 @@ from datetime import datetime
 from typing import Final
 
 from ..config.groupings import GROUPINGS
-from ..config.lists import PASSPORT_MIN_YEAR, REGION_CODE_VALUES
+from ..config.lists import PASSPORT_MIN_YEAR, REGION_OKATO_VALUES
 from ..formatting.numbers import verbalize_by_mode
 
 
 class PassportGenerator:
     def __init__(self) -> None:
-        self.region_codes: list[str] = REGION_CODE_VALUES
+        self.region_codes: list[str] = REGION_OKATO_VALUES
         self.max_year: int = datetime.now().year
 
     def _generate_year(self) -> str:
