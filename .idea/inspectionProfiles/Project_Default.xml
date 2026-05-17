@@ -1,0 +1,61 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="requests" />
+          <option value="beautifulsoup4" />
+          <option value="aiohttp" />
+          <option value="yarl" />
+          <option value="numba" />
+          <option value="Cython" />
+          <option value="pybind11" />
+          <option value="scipy" />
+          <option value="numpy" />
+          <option value="pandas" />
+          <option value="matplotlib" />
+          <option value="seaborn" />
+          <option value="plotly" />
+          <option value="tzlocal" />
+          <option value="lxml" />
+          <option value="flatbuffers" />
+          <option value="protobuf" />
+          <option value="PyYAML" />
+          <option value="pyarrow" />
+          <option value="fastapi" />
+          <option value="httpx" />
+          <option value="SQLAlchemy" />
+          <option value="GitPython" />
+          <option value="flake8" />
+          <option value="Flake8-pyproject" />
+          <option value="ruff" />
+          <option value="mypy" />
+          <option value="black" />
+          <option value="pytest" />
+          <option value="pytest-timeout" />
+          <option value="requests-mock" />
+          <option value="pytest-mock" />
+          <option value="pytest-cov" />
+          <option value="psutil" />
+          <option value="types-requests" />
+          <option value="setuptools" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPep8NamingInspection" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <option name="ignoredErrors">
+        <list>
+          <option value="N802" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="testlib.*" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
