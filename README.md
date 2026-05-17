@@ -1,63 +1,120 @@
-# ASR Integer Extractor
+# AnonMed
 
-Небольшой Python-пакет для неразрушающего извлечения целочисленных спанов из шумного русского ASR-текста.
+`AnonMed` теперь оформлен как более общий Python-проект, в котором текущая логика ASR-очистки и нормализации чисел живет не как отдельный основной пакет, а как preprocessing-слой.
 
-Главная идея: препроцессинг не удаляет остальной текст. Пакет хранит исходные позиции найденных чисел и умеет заменить только числовые фрагменты, сохранив всё остальное содержимое строки.
+Основной вектор проекта:
 
-## Что поддерживается
+- корневой пакет: `anonmed`
+- текущий функциональный слой: `anonmed.preprocessing.asr`
+- совместимость со старым API: `asr_integer_extractor`
 
-- Цифры, уже записанные цифрами: `текст5435453...` → `5435453`.
-- Обычные русские числительные: `сорок два` → `42`, `одна тысяча пять` → `1005`.
-- Диктовка последовательности цифр: `девять три два четыре` → `9324`.
-- Смешанный ASR-вывод: `двадцать 5` → `25`, `минус семь` → `-7`.
-- Integer-only policy: `двенадцать с половиной` → `12`, `12 с половиной` → `12`.
-- Fuzzy-correction для ограниченного словаря числительных: `двадцат пять` → `25`.
-- Возврат `raw`, `normalized`, `start`, `end`, `kind`, `status`, `confidence`.
+Это оставляет пространство для будущих ML-моделей, обучения, инференса и доменных пайплайнов без привязки всей кодовой базы к одному узкому extractor-модулю.
 
-## Коммерческий профиль
+## Структура
 
-Ядро не использует GPL-зависимости, `pymorphy`-словари или внешние нейросетевые сервисы. Единственная обязательная зависимость — `numpy`, используемая для типизированного confidence scoring. FastAPI вынесен в optional extra.
+```text
+src/
+  anonmed/
+    api.py
+    cli.py
+    preprocessing/
+      asr/
+        confidence.py
+        disfluency.py
+        fuzzy_matching.py
+        number_extractor.py
+        number_parser.py
+        numeric_lexicon.py
+        pipeline.py
+        punctuation.py
+        tokenization.py
+        types.py
+  asr_integer_extractor/
+    ...
+```
+
+Старый пакет `asr_integer_extractor` сохранён как совместимый shim-слой поверх нового `anonmed.preprocessing.asr`.
+
+## Что делает preprocessing-слой
+
+- удаляет дисфлюэнции и filler-слова из русского ASR-текста
+- удаляет пунктуацию с сохранением числовых разделителей, доменов, email и URL
+- извлекает и нормализует целые числа и последовательности цифр
+- возвращает audit trail по удалённым и защищённым span-ам
 
 ## Установка для разработки
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
-python3 -m unittest discover -s tests
+pip install -e .[dev]
+pytest -q
 ```
 
-## Пример
+## Новый импорт
 
 ```python
-from asr_integer_extractor import IntegerExtractor, replace_integer_spans
+from anonmed.preprocessing import ASRTextPreprocessingPipeline
 
-text = "номер девять три два четыре, потом 43249329 и текст5435453..."
-extractor = IntegerExtractor()
-items = extractor.extract(text)
+pipeline = ASRTextPreprocessingPipeline()
+result = pipeline.run("ну, эм, номер один два три")
 
-print([item.value for item in items])
-# ['9324', '43249329', '5435453']
+print(result.cleaned_text)
+# номер один два три
 
-print(replace_integer_spans(text))
-# номер 9324, потом 43249329 и текст5435453...
+print(result.normalized_text)
+# номер 123
 ```
 
-## CLI
+Можно работать и точечно:
+
+```python
+from anonmed.preprocessing.asr import remove_disfluencies, remove_punctuation
+
+print(remove_disfluencies("Ну, эм, я как бы диктую номер один два три."))
+# я диктую номер один два три.
+
+print(remove_punctuation("сайт test.com, код 12.05.2026!"))
+# сайт test.com код 12.05.2026
+```
+
+## Совместимость со старым API
+
+Старые импорты продолжают работать:
+
+```python
+from asr_integer_extractor import IntegerExtractor, PunctuationFilterConfig, run_asr_normalization
+```
+
+Старый CLI тоже сохранён:
 
 ```bash
-asr-integer-extract "номер девять три два четыре, потом 43249329"
+asr-integer-extract "ну эм номер один два" --run
 ```
 
-## Backend-интеграция
+Новый CLI проекта:
 
-Используйте `IntegerExtractor.extract(text)` для structured response. Для REST-слоя можно поставить optional extra:
+```bash
+anonmed-preprocess "ну эм номер один два" --run
+python -m anonmed.cli "ну эм номер один два" --run
+```
+
+## API
 
 ```bash
 pip install -e .[api]
-uvicorn asr_integer_extractor.api:create_app --factory
+uvicorn anonmed.api:create_app --factory
 ```
+
+Поддерживаются и старые, и новые маршруты:
+
+- `/v1/asr-integer/parse`
+- `/v1/asr-integer/punctuation-clean`
+- `/v1/asr-integer/run`
+- `/v1/preprocessing/asr/parse`
+- `/v1/preprocessing/asr/punctuation-clean`
+- `/v1/preprocessing/asr/run`
 
 ## Ограничения
 
-Это deterministic/fuzzy extractor, а не полный русский ITN. Он намеренно ориентирован на восстановление целых чисел и последовательностей цифр из ASR, а не на даты, валюты, адреса или проценты.
+Это по-прежнему deterministic/fuzzy preprocessing-компонент, а не полноценная ML-модель и не полный русский ITN. Он специально оставлен в preprocessing-слое, чтобы дальше поверх него можно было развивать уже более крупные части `AnonMed`.

@@ -3,14 +3,14 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "asr-integer-extractor"
-version = "0.1.0"
-description = "Non-destructive extraction and normalization of integer spans from noisy Russian ASR text."
+name = "anonmed"
+version = "0.2.0"
+description = "AnonMed platform foundation with reusable preprocessing utilities for noisy Russian ASR text."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [
-  { name = "asr-integer-extractor contributors" }
+  { name = "AnonMed contributors" }
 ]
 dependencies = [
   "numpy>=1.23"
@@ -26,10 +26,11 @@ dev = [
 ]
 
 [project.scripts]
+anonmed-preprocess = "anonmed.cli:main"
 asr-integer-extract = "asr_integer_extractor.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/asr_integer_extractor"]
+packages = ["src/anonmed", "src/asr_integer_extractor"]
 
 [tool.ruff]
 line-length = 100
