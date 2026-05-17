@@ -8,6 +8,8 @@ from asr_integer_extractor.fuzzy import best_fuzzy_match
 from asr_integer_extractor.lexicon import (
     ASR_ALIASES,
     CANONICAL_WORD_VALUES,
+    AMBIGUOUS_INFLECTED_NUMERAL_FORMS,
+    NUMERAL_CONTEXT_WORDS,
     FILLER_WORDS,
     FRACTION_MARKERS,
     FRACTION_PREFIXES,
@@ -46,17 +48,21 @@ class IntegerExtractor:
             if parsed.has_fraction_tail and self.config.include_fraction_tail_in_span:
                 used_tokens = self._include_fraction_tail(span_tokens, parsed.consumed_token_count)
 
+            if not self._contextual_case_aliases_are_allowed(tokens, index, used_tokens):
+                index += 1
+                continue
+
             start: int = used_tokens[0].token.start
             end: int = used_tokens[-1].token.end
             raw: str = text[start:end]
-            item = IntegerSpan(
+            item: IntegerSpan = IntegerSpan(
                 value=parsed.value,
                 start=start,
                 end=end,
                 raw=raw,
                 normalized=parsed.normalized,
                 kind=parsed.kind,
-                status=parsed.status,  # type: ignore[arg-type]
+                status=parsed.status,
                 confidence=parsed.confidence,
                 candidates=parsed.candidates,
             )
@@ -184,6 +190,33 @@ class IntegerExtractor:
             if numeric_token.canonical in FRACTION_MARKERS:
                 break
         return used_tokens
+
+    def _contextual_case_aliases_are_allowed(
+        self,
+        tokens: list[Token],
+        start_index: int,
+        used_tokens: list[NumericToken],
+    ) -> bool:
+        contextual_sources: frozenset[str] = AMBIGUOUS_INFLECTED_NUMERAL_FORMS
+        has_contextual_alias: bool = any(
+            numeric_token.token.text.lower().replace("ё", "е") in contextual_sources
+            for numeric_token in used_tokens
+        )
+        if not has_contextual_alias:
+            return True
+
+        if len(used_tokens) > 1:
+            return True
+
+        previous_index: int = start_index - 1
+        if previous_index < 0:
+            return False
+
+        previous_token: Token = tokens[previous_index]
+        previous_normalized: str = previous_token.normalized
+        allowed_previous_words: frozenset[str] = NUMERAL_CONTEXT_WORDS | FILLER_WORDS
+        is_allowed: bool = previous_token.kind == "word" and previous_normalized in allowed_previous_words
+        return is_allowed
 
     def _token_index_after(self, tokens: list[Token], end: int) -> int:
         next_index: int = len(tokens)

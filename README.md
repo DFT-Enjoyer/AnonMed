@@ -21,10 +21,10 @@
 ## Установка для разработки
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
-python -m unittest discover -s tests
+python3 -m unittest discover -s tests
 ```
 
 ## Пример

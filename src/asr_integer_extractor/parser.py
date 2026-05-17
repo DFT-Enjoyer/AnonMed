@@ -3,8 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Final
 
+import numpy as np
+from numpy.typing import NDArray
+
 from asr_integer_extractor.lexicon import DIGIT_WORDS, FRACTION_MARKERS, HUNDREDS, NEGATIVE_WORDS, SCALES, TEENS, TENS
-from asr_integer_extractor.models import Candidate, ExtractorConfig, NumericToken, SpanKind
+from asr_integer_extractor.models import Candidate, ExtractorConfig, NumericToken, SpanKind, SpanStatus
 from asr_integer_extractor.scoring import build_feature_vector, score_confidence
 
 
@@ -12,7 +15,7 @@ from asr_integer_extractor.scoring import build_feature_vector, score_confidence
 class ParsedSpan:
     value: str
     kind: SpanKind
-    status: str
+    status: SpanStatus
     confidence: float
     normalized: str
     candidates: tuple[Candidate, ...]
@@ -259,7 +262,7 @@ def parse_numeric_tokens(tokens: list[NumericToken], config: ExtractorConfig) ->
     fuzzy_count: int = sum(1 for numeric_token in trimmed_tokens if numeric_token.is_fuzzy)
     score_sum: float = sum(numeric_token.score for numeric_token in trimmed_tokens)
     mean_score: float = score_sum / float(len(trimmed_tokens))
-    features = build_feature_vector(
+    features: NDArray[np.float64] = build_feature_vector(
         token_count=len(trimmed_tokens),
         fuzzy_count=fuzzy_count,
         mean_lexical_score=mean_score,
@@ -267,9 +270,9 @@ def parse_numeric_tokens(tokens: list[NumericToken], config: ExtractorConfig) ->
         kind=selected.kind,
     )
     confidence: float = min(selected.confidence, score_confidence(features))
-    status: str = "fuzzy_ok" if fuzzy_count > 0 else "ok"
+    status: SpanStatus = "fuzzy_ok" if fuzzy_count > 0 else "ok"
     normalized: str = " ".join(numeric_token.canonical for numeric_token in trimmed_tokens)
-    parsed = ParsedSpan(
+    parsed: ParsedSpan = ParsedSpan(
         value=selected.value,
         kind=selected.kind,
         status=status,
