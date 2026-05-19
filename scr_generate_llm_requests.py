@@ -3,10 +3,10 @@ import json
 import csv
 import random
 import time
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple
 
 # ========== НАСТРОЙКИ ==========
-API_KEY = "YOUR_API_KEY"
+API_KEY = ""
 FOLDER_ID = "b1gj1ffh6inspq494e65"
 MODEL_URI = f"gpt://{FOLDER_ID}/yandexgpt-5.1/latest"
 URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
@@ -19,7 +19,6 @@ HEADERS = {
 REQUEST_DELAY = 0.5
 MAX_TOKENS = 4000
 TEMPERATURE = 1  # повысил для разнообразия
-PROB_SCENARIO = 0.7  # вероятность того, что будет использован случайный сценарий из файла
 
 SCENARIOS_FILE = "scenarios.txt"
 
@@ -127,21 +126,14 @@ def call_yandexgpt(prompt: str) -> str:
     resp.raise_for_status()
     return resp.json()["result"]["alternatives"][0]["message"]["text"].strip()
 
-def generate_dialog_with_tags(selected_items: List[Tuple[str, str]], target_word_count: int, scenario: Optional[str]) -> str:
+def generate_dialog_with_tags(selected_items: List[Tuple[str, str]], target_word_count: int, scenario: str) -> str:
     items_str = "\n".join([f"  - {type_}: {value}" for type_, value in selected_items])
-    
-    if scenario is not None:
-        scenario_header = f"Ты — генератор разнообразного медицинского диалога на тему: {scenario}\n\n"
-        scenario_instruction = "Если с заданным сценарием получается неестественно, можешь его изменить.\n"
-    else:
-        scenario_header = "Ты — генератор разнообразного медицинского диалога. Сценарий не задан, придумай подходящую медицинскую ситуацию самостоятельно.\n\n"
-        scenario_instruction = ""
-    
-    prompt = f"""{scenario_header}{scenario_instruction}
+    prompt = f"""Ты — генератор разнообразного медицинского диалога на тему: {scenario}
+
 Твоя задача:
-1. Сгенерируй короткий диалог (примерно {target_word_count} слов, от 20 до 50). Диалог должен быть максимально естественным, на русском языке, соответствовать медицинской тематике.
+1. Сгенерируй короткий диалог (примерно {target_word_count} слов, от 20 до 50). Диалог должен быть максимально естественным, на русском языке, соответствовать медицинской тематике. Если с заданном сценарием получается неестественно, можешь его изменить.
 Диалог должен быть формата [контекст] [персональные данные] [контекст], но можешь при необходимости поменять его структуру.
-2. В диалоге обязательно используй ВСЕ следующие персональные данные (каждое хотя бы один раз): {items_str}. Поменяй форму данных согласно правилам языка так, чтобы фактическая информация не изменилась. Если у тебя есть буквенный формат чисел, то ты можешь преобразовать их в цифровой формат. Строго следи за тем, чтобы количество цифр не изменилось.
+2. В диалоге обязательно используй ВСЕ следующие персональные данные (каждое хотя бы один раз): {items_str}. Поменяй форму данных согласно правилам языка так, чтобы фактическая информация не  изменилась. Если у тебя есть буквенный формат чисел, то ты можешь преобразовать их в цифровой формат. Строго следи за тем, чтобы количество цифр не изменилось.
 Строго следи за падежами, склонениями и прочей грамматической информацией для генерации правдоподобного диалога.
 3. Каждое вхождение персональных данных (вместе с грамматическими изменениями) оберни в теги [S] и [/S].
 4. Выводи только текст диалога в формате:
@@ -149,9 +141,10 @@ def generate_dialog_with_tags(selected_items: List[Tuple[str, str]], target_word
    Б: реплика
    ...
    Не добавляй пояснений, не пиши "Сценарий: ...". Только диалог.
-5. Строго следи за окончаниями вставленных слов (персональных данных).
-6. Не добавляй новую информацию в span, если нет какой-то информации. Если тебе для диалога нужны какие-то данные, а их нет в сценарии, то поменяй диалог.
+5. Строго следи за окончаниями вставленных слов (персоналных данных).
+6. Не добавляй новую информацию в span, если нет какой - то информации. Если тебе для диалога нужны какие - то данные, а их нет в сценарии, то поменяй диалог.
 7. Следи за родом, если, например, ФИО женское, то не сочетай его с вручением военного билета. Следи за этим, то есть нужно сочетать персональные данные и сценарий.
+
 
 Пример:
 А: Ваш полис ОМС — [S]три тысячи пятьсот два сто одиннадцать две тысячи семьсот шестьдесят восемь семь тысяч шестьсот сорок[/S]?
@@ -212,7 +205,6 @@ def main():
     output_jsonl = "dialogs.jsonl"
     scenarios = load_scenarios(SCENARIOS_FILE)
     print(f"Загружено сценариев: {len(scenarios)}")
-    print(f"Вероятность использования сценария: {PROB_SCENARIO}")
 
     with open(input_csv, "r", encoding="utf-8") as csvfile, \
          open(output_txt, "w", encoding="utf-8") as txt_out, \
@@ -231,20 +223,11 @@ def main():
                 print(f"Строка {idx}: нет данных, пропуск")
                 continue
 
-            # Решаем, использовать ли сценарий
-            if random.random() < PROB_SCENARIO:
-                chosen_scenario = random.choice(scenarios)
-                scenario_for_prompt = chosen_scenario
-                scenario_str_display = chosen_scenario[:80]
-            else:
-                chosen_scenario = None
-                scenario_for_prompt = None
-                scenario_str_display = "БЕЗ СЦЕНАРИЯ"
-
+            chosen_scenario = random.choice(scenarios)
             print(f"\nСтрока {idx}: выбрано {len(selected)} сущностей")
             for t, v in selected:
                 print(f"  - {t}: {v[:60]}...")
-            print(f"  -> сценарий: {scenario_str_display}")
+            print(f"  -> сценарий: {chosen_scenario[:80]}...")
 
             target_words = random.randint(20, 50)
             if len(selected) == 3:
@@ -252,7 +235,7 @@ def main():
             print(f"  -> целевое число слов: {target_words}")
 
             try:
-                marked_dialog = generate_dialog_with_tags(selected, target_words, scenario_for_prompt)
+                marked_dialog = generate_dialog_with_tags(selected, target_words, chosen_scenario)
             except Exception as e:
                 print(f"  Ошибка генерации: {e}")
                 continue
@@ -261,7 +244,7 @@ def main():
             real_word_count = len(clean_dialog.split())
             print(f"  -> получено слов: {real_word_count}")
 
-            txt_out.write(f"=== Диалог {idx} (сценарий: {scenario_str_display}) ===\n{clean_dialog}\n\n---\n\n")
+            txt_out.write(f"=== Диалог {idx} (сценарий: {chosen_scenario}) ===\n{clean_dialog}\n\n---\n\n")
             record = {
                 "id": idx,
                 "selected_entities": [{"type": t, "value": v} for t, v in selected],
