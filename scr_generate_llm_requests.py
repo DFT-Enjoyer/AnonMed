@@ -1,14 +1,13 @@
 import requests
 import json
 import csv
-import re
-import time
 import random
-from typing import List, Dict, Any, Tuple
+import time
+from typing import List, Dict, Tuple, Optional
 
 # ========== НАСТРОЙКИ ==========
-API_KEY = ""                     # Замените на свой
-FOLDER_ID = "b1gj1ffh6inspq494e65"          # Ваш folder_id
+API_KEY = "YOUR_API_KEY"
+FOLDER_ID = "b1gj1ffh6inspq494e65"
 MODEL_URI = f"gpt://{FOLDER_ID}/yandexgpt-5.1/latest"
 URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
@@ -19,14 +18,17 @@ HEADERS = {
 
 REQUEST_DELAY = 0.5
 MAX_TOKENS = 4000
-TEMPERATURE = 0.7
+TEMPERATURE = 1  # повысил для разнообразия
+PROB_SCENARIO = 0.7  # вероятность того, что будет использован случайный сценарий из файла
+
+SCENARIOS_FILE = "scenarios.txt"
 
 FIELD_NAME_RU = {
     "full_address": "полный адрес проживания",
-    "nicks_with_at": "ник в телеграме (приложение)",
+    "nicks_with_at": "ник в телеграме",
     "email": "е-майл почта",
     "full_company_name": "полное наименование компании",
-    "name": "ФИО (фамилия, имя, отчество)",
+    "name": "ФИО",
     "phone_mobile": "номер мобильного телефона",
     "phone_landline": "номер городского телефона",
     "snils": "номер СНИЛС",
@@ -40,6 +42,81 @@ FIELD_NAME_RU = {
     "driver_license": "номер водительского удостоверения"
 }
 
+FIELD_WEIGHTS = {
+    "nicks_with_at": 0.2,
+    "email": 0.3,
+    "phone_mobile": 0.8,
+    "phone_landline": 0.2,
+    "snils": 1.0,
+    "passport": 1.0,
+    "birthdate": 0.8,
+    "oms": 0.9,
+    "inn": 0.7,
+    "age": 1.0,
+    "mse": 0.4,
+    "birth_certificate": 0.2,
+    "driver_license": 0.2,
+    "full_address": 1.0,
+    "name": 1.0,
+    "full_company_name": 0.3
+}
+DEFAULT_WEIGHT = 1.0
+
+def load_scenarios(file_path: str) -> List[str]:
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            scenarios = [line.strip() for line in f if line.strip()]
+        if not scenarios:
+            print("Предупреждение: файл сценариев пуст, использую стандартные.")
+            return [
+                "Вручение военного билета (категория «В» — ограниченно годен)",
+                "Вызов врача на дом для умирающего (Запись через регистратора)",
+                "Разговор в реанимации (Врач-реаниматолог и сын пациента после инсульта)",
+                "Приём у терапевта с жалобами на давление",
+                "Оформление полиса ОМС в регистратуре"
+            ]
+        return scenarios
+    except FileNotFoundError:
+        print(f"Файл {file_path} не найден, использую стандартные сценарии.")
+        return [
+            "Вручение военного билета (категория «В» — ограниченно годен)",
+            "Вызов врача на дом для умирающего (Запись через регистратора)",
+            "Разговор в реанимации (Врач-реаниматолог и сын пациента после инсульта)"
+        ]
+
+def select_entities(row: List[str], headers: List[str]) -> List[Tuple[str, str]]:
+    available = []
+    for col_idx, value in enumerate(row):
+        if value.strip():
+            field_en = headers[col_idx]
+            field_ru = FIELD_NAME_RU.get(field_en, field_en)
+            weight = FIELD_WEIGHTS.get(field_en, DEFAULT_WEIGHT)
+            available.append((field_en, field_ru, value.strip(), weight))
+    if not available:
+        return []
+    k = random.choice([1, 2])
+    k = min(k, len(available))
+    selected = []
+    remaining = available[:]
+    for _ in range(k):
+        if not remaining:
+            break
+        weighted_items = [(i, item[3]) for i, item in enumerate(remaining)]
+        total = sum(w for _, w in weighted_items)
+        r = random.uniform(0, total)
+        acc = 0.0
+        chosen_idx = None
+        for idx, w in weighted_items:
+            acc += w
+            if r <= acc:
+                chosen_idx = idx
+                break
+        if chosen_idx is None:
+            chosen_idx = 0
+        chosen = remaining.pop(chosen_idx)
+        selected.append((chosen[1], chosen[2]))
+    return selected
+
 def call_yandexgpt(prompt: str) -> str:
     payload = {
         "modelUri": MODEL_URI,
@@ -50,25 +127,41 @@ def call_yandexgpt(prompt: str) -> str:
     resp.raise_for_status()
     return resp.json()["result"]["alternatives"][0]["message"]["text"].strip()
 
-def generate_dialog_with_tags(selected_items: List[Tuple[str, str]], target_word_count: int) -> str:
+def generate_dialog_with_tags(selected_items: List[Tuple[str, str]], target_word_count: int, scenario: Optional[str]) -> str:
     items_str = "\n".join([f"  - {type_}: {value}" for type_, value in selected_items])
-    prompt = f"""Ты — генератор медицинских диалогов. Создай реалистичный разговор на тему здравоохранения (приём у врача, регистратура, страховой случай, вызов скорой) между двумя людьми. 
+    
+    if scenario is not None:
+        scenario_header = f"Ты — генератор разнообразного медицинского диалога на тему: {scenario}\n\n"
+        scenario_instruction = "Если с заданным сценарием получается неестественно, можешь его изменить.\n"
+    else:
+        scenario_header = "Ты — генератор разнообразного медицинского диалога. Сценарий не задан, придумай подходящую медицинскую ситуацию самостоятельно.\n\n"
+        scenario_instruction = ""
+    
+    prompt = f"""{scenario_header}{scenario_instruction}
+Твоя задача:
+1. Сгенерируй короткий диалог (примерно {target_word_count} слов, от 20 до 50). Диалог должен быть максимально естественным, на русском языке, соответствовать медицинской тематике.
+Диалог должен быть формата [контекст] [персональные данные] [контекст], но можешь при необходимости поменять его структуру.
+2. В диалоге обязательно используй ВСЕ следующие персональные данные (каждое хотя бы один раз): {items_str}. Поменяй форму данных согласно правилам языка так, чтобы фактическая информация не изменилась. Если у тебя есть буквенный формат чисел, то ты можешь преобразовать их в цифровой формат. Строго следи за тем, чтобы количество цифр не изменилось.
+Строго следи за падежами, склонениями и прочей грамматической информацией для генерации правдоподобного диалога.
+3. Каждое вхождение персональных данных (вместе с грамматическими изменениями) оберни в теги [S] и [/S].
+4. Выводи только текст диалога в формате:
+   А: реплика
+   Б: реплика
+   ...
+   Не добавляй пояснений, не пиши "Сценарий: ...". Только диалог.
+5. Строго следи за окончаниями вставленных слов (персональных данных).
+6. Не добавляй новую информацию в span, если нет какой-то информации. Если тебе для диалога нужны какие-то данные, а их нет в сценарии, то поменяй диалог.
+7. Следи за родом, если, например, ФИО женское, то не сочетай его с вручением военного билета. Следи за этим, то есть нужно сочетать персональные данные и сценарий.
 
-Диалог должен содержать примерно {target_word_count} слов. Формат: "A: ...\\nB: ...\\nA: ...".
+Пример:
+А: Ваш полис ОМС — [S]три тысячи пятьсот два сто одиннадцать две тысячи семьсот шестьдесят восемь семь тысяч шестьсот сорок[/S]?
+Б: Да, и дата рождения [S]шестое января одна тысяча девятьсот сорок девятого года[/S].
+Ты должен не менять цифровые данные при их преобразовании. Также если у тебя появляется ФИО, то ты не должен его дублировать:
+А: Здравствуйте, меня зовут Карлюга Ирина Евгеньевна Карлюга Ирина Евгеньевна. Так строго запрещено, нужно по одному разу указывать ФИО.
+Аналогично запрещено это:
+А: +7 994 687-26-4. Так нельзя. Нужно 14 символов.
 
-В диалоге обязательно нужно использовать следующие персональные данные и реквизиты (каждый хотя бы один раз). Они должны фигурировать именно в том качестве, которое указано:
-
-{items_str}
-
-Делай предложения максимально естественными.
-
- Ты должен менять слова грамматически (склонять по падежам, добавлять предлоги, менять окончания) так, чтобы предложения стали корректными с точки зрения грамматики. Строго запрещено менять фактическую информацию.
- Нельзя преобразовывать буквенную запись чисел в численную. Обязательно меняй форму числительных для корректного диалога.
- Каждое вхождение значения должно быть обёрнуто в теги [S] и [/S] вместе с грамматическими изменениями. Генерируй максимально правдоподобные тексты.
-
-Например:
- "Дата рождения: [S]шестого января одна тысяча девятьсот сорок девятого года[/S]"
-Выведи только текст диалога с тегами, без лишних пояснений."""
+Сгенерируй диалог."""
     return call_yandexgpt(prompt)
 
 def remove_tags_and_get_spans(marked_text: str) -> Tuple[str, List[Dict]]:
@@ -92,7 +185,7 @@ def remove_tags_and_get_spans(marked_text: str) -> Tuple[str, List[Dict]]:
             if inside_span:
                 span_text = ''.join(current_span_text)
                 spans.append({
-                    "span1": span_text,
+                    "span": span_text,
                     "begin": span_start_pos,
                     "end": len(clean_chars)
                 })
@@ -106,7 +199,7 @@ def remove_tags_and_get_spans(marked_text: str) -> Tuple[str, List[Dict]]:
 
     if inside_span and current_span_text:
         spans.append({
-            "span1": ''.join(current_span_text),
+            "span": ''.join(current_span_text),
             "begin": span_start_pos,
             "end": len(clean_chars)
         })
@@ -117,6 +210,9 @@ def main():
     input_csv = "combined_by_columns.csv"
     output_txt = "dialogs.txt"
     output_jsonl = "dialogs.jsonl"
+    scenarios = load_scenarios(SCENARIOS_FILE)
+    print(f"Загружено сценариев: {len(scenarios)}")
+    print(f"Вероятность использования сценария: {PROB_SCENARIO}")
 
     with open(input_csv, "r", encoding="utf-8") as csvfile, \
          open(output_txt, "w", encoding="utf-8") as txt_out, \
@@ -130,37 +226,42 @@ def main():
             if not row or all(cell == "" for cell in row):
                 continue
 
-            available = []
-            for col_idx, value in enumerate(row):
-                if value.strip():
-                    field_en = headers[col_idx]
-                    field_ru = FIELD_NAME_RU.get(field_en, field_en)
-                    available.append((field_ru, value.strip()))
-
-            if not available:
+            selected = select_entities(row, headers)
+            if not selected:
                 print(f"Строка {idx}: нет данных, пропуск")
                 continue
 
-            k = random.randint(1, 3)
-            selected = random.sample(available, k)
-            print(f"\nСтрока {idx}: выбрано {k} сущностей")
+            # Решаем, использовать ли сценарий
+            if random.random() < PROB_SCENARIO:
+                chosen_scenario = random.choice(scenarios)
+                scenario_for_prompt = chosen_scenario
+                scenario_str_display = chosen_scenario[:80]
+            else:
+                chosen_scenario = None
+                scenario_for_prompt = None
+                scenario_str_display = "БЕЗ СЦЕНАРИЯ"
+
+            print(f"\nСтрока {idx}: выбрано {len(selected)} сущностей")
             for t, v in selected:
                 print(f"  - {t}: {v[:60]}...")
+            print(f"  -> сценарий: {scenario_str_display}")
 
-            target_words = random.randint(2 * k, 8 * k)
+            target_words = random.randint(20, 50)
+            if len(selected) == 3:
+                target_words = min(50, target_words + 5)
             print(f"  -> целевое число слов: {target_words}")
 
             try:
-                marked_dialog = generate_dialog_with_tags(selected, target_words)
+                marked_dialog = generate_dialog_with_tags(selected, target_words, scenario_for_prompt)
             except Exception as e:
-                print(f"  Ошибка: {e}")
+                print(f"  Ошибка генерации: {e}")
                 continue
 
             clean_dialog, spans = remove_tags_and_get_spans(marked_dialog)
             real_word_count = len(clean_dialog.split())
             print(f"  -> получено слов: {real_word_count}")
 
-            txt_out.write(f"=== Диалог {idx} ===\n{clean_dialog}\n\n---\n\n")
+            txt_out.write(f"=== Диалог {idx} (сценарий: {scenario_str_display}) ===\n{clean_dialog}\n\n---\n\n")
             record = {
                 "id": idx,
                 "selected_entities": [{"type": t, "value": v} for t, v in selected],
