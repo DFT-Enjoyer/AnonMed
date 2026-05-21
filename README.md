@@ -61,3 +61,8 @@ uvicorn asr_integer_extractor.api:create_app --factory
 ## Ограничения
 
 Это deterministic/fuzzy extractor, а не полный русский ITN. Он намеренно ориентирован на восстановление целых чисел и последовательностей цифр из ASR, а не на даты, валюты, адреса или проценты.
+
+
+## Ссылка на датасеты
+
+https://disk.360.yandex.ru/d/m4rh5c9qIxh3rg
