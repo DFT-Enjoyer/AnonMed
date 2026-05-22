@@ -31,9 +31,13 @@ def generate_snils() -> str:
 def verbalize_snils(snils: str, mode: str) -> str:
     return verbalize_by_mode(snils, mode, GROUPINGS["snils"])
 
+def generate_snils_raw() -> str:
+    """Возвращает СНИЛС в виде 11 цифр без дефисов/пробелов."""
+    return generate_snils()
 
 __all__: Final[list[str]] = [
     "calculate_snils_checksum",
     "generate_snils",
+    "generate_snils_raw",
     "verbalize_snils",
 ]

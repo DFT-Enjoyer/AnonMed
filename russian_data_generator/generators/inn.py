@@ -30,4 +30,8 @@ def verbalize_inn(inn: str, mode: str = "digits") -> str:
     return verbalize_by_mode(inn, mode, GROUPINGS["inn"])
 
 
-__all__: Final[list[str]] = ["generate_inn", "verbalize_inn"]
+def generate_inn_raw() -> str:
+    """Возвращает ИНН в виде строки из 12 цифр."""
+    return generate_inn()
+
+___all__: Final[list[str]] = ["generate_inn", "generate_inn_raw", "verbalize_inn"]

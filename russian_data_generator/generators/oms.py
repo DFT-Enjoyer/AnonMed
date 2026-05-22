@@ -63,5 +63,8 @@ def generate_oms() -> str:
 def verbalize_oms(oms: str, mode: str) -> str:
     return verbalize_by_mode(oms, mode, GROUPINGS["oms"])
 
+def generate_oms_raw() -> str:
+    """Возвращает номер ОМС в виде строки из 16 цифр."""
+    return _oms_gen.generate()
 
-__all__: Final[list[str]] = ["OMSGenerator", "generate_oms", "verbalize_oms"]
+__all__: Final[list[str]] = ["OMSGenerator", "generate_oms", "generate_oms_raw", "verbalize_oms"]

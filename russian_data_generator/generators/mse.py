@@ -31,5 +31,9 @@ def verbalize_mse(mse: dict[str, str], mode: str = "groups") -> str:
     full: str = mse["series"] + mse["number"]
     return verbalize_by_mode(full, mode, GROUPINGS["mse"])
 
+def generate_mse_raw() -> str:
+    """Возвращает номер МСЭ в виде строки из 11 цифр (серия + номер)."""
+    data = _mse_gen.generate()
+    return data["series"] + data["number"]
 
-__all__: Final[list[str]] = ["MSEGenerator", "generate_mse", "verbalize_mse"]
+__all__: Final[list[str]] = ["MSEGenerator", "generate_mse", "generate_mse_raw", "verbalize_mse"]

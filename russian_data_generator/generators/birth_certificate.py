@@ -12,7 +12,6 @@ from ..config.lists import (
 )
 from ..formatting.numbers import verbalize_by_mode
 
-
 def generate_birth_certificate() -> dict[str, str]:
     roman: str = random.choice(BIRTH_CERTIFICATE_ROMAN_VALUES)
     letters: list[str] = random.choices(BIRTH_CERTIFICATE_VALID_LETTERS, k=2)
@@ -30,8 +29,13 @@ def verbalize_birth_certificate(data: dict[str, str], mode: str = "groups") -> s
     number_words: str = verbalize_by_mode(number, mode, GROUPINGS["birth_certificate"])
     return " ".join([roman_word, "тире"] + letter_words + [number_words])
 
+def generate_birth_certificate_raw() -> str:
+    """Возвращает полный номер свидетельства в цифро-буквенном виде (например, 'II-АБ123456')."""
+    data = generate_birth_certificate()
+    return data["series"] + data["number"]
 
 __all__: Final[list[str]] = [
     "generate_birth_certificate",
     "verbalize_birth_certificate",
+    "generate_birth_certificate_raw"
 ]

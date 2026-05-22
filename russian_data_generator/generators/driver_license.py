@@ -30,9 +30,13 @@ def generate_driver_license() -> str:
 def verbalize_driver_license(license_num: str, mode: str = "groups") -> str:
     return verbalize_by_mode(license_num, mode, GROUPINGS["driver_license"])
 
+def generate_driver_license_raw() -> str:
+    """Возвращает номер водительского удостоверения в цифровом виде (10 цифр)."""
+    return _dl_gen.generate()
 
 __all__: Final[list[str]] = [
     "DriverLicenseGenerator",
     "generate_driver_license",
     "verbalize_driver_license",
+    "generate_driver_license_raw"
 ]

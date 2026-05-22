@@ -28,4 +28,9 @@ def verbalize_birthdate(dt: date, mode: str = "words") -> str:
     year: str = num2words(dt.year, lang="ru")
     return f"{day} {month} {year} года"
 
-__all__: Final[list[str]] = ["generate_birthdate", "verbalize_birthdate"]
+def generate_birthdate_raw(min_age: int = 1, max_age: int = 90) -> str:
+    """Возвращает дату рождения в формате 'ДД.ММ.ГГГГ' (например, '15.03.1992')."""
+    dt = generate_birthdate(min_age, max_age)
+    return dt.strftime("%d.%m.%Y")
+
+__all__: Final[list[str]] = ["generate_birthdate", "verbalize_birthdate", "generate_birthdate_raw"]

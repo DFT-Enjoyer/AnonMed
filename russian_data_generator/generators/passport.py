@@ -39,9 +39,13 @@ def generate_passport() -> str:
 def verbalize_passport(passport_data: str, mode: str = "groups") -> str:
     return verbalize_by_mode(passport_data, mode, GROUPINGS["passport"])
 
+def generate_passport_raw() -> str:
+    """Возвращает серию и номер паспорта вместе (10 цифр)."""
+    return _passport_gen.generate()
 
 __all__: Final[list[str]] = [
     "PassportGenerator",
     "generate_passport",
+    "generate_passport_raw",
     "verbalize_passport",
 ]

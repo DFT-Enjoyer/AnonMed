@@ -40,7 +40,19 @@ def split_by_groups(number: str, groups: Sequence[int]) -> list[str]:
 
 
 def groups_to_words(groups: Sequence[str]) -> str:
-    return " ".join(number_to_words_ru(int(group)) for group in groups)
+    """Преобразует группы цифр в слова, явно проговаривая ведущие нули."""
+    parts = []
+    for group in groups:
+        # если вся группа состоит только из нулей, произносим столько же раз «ноль»
+        if all(ch == '0' for ch in group):
+            parts.append(" ".join(["ноль"] * len(group)))
+        elif group[0] == '0':
+            # ведущий ноль: говорим "ноль" и затем числовое представление остатка
+            parts.append("ноль " + number_to_words_ru(int(group[1:])))
+        else:
+            # без ведущего нуля – обычное числовое озвучивание
+            parts.append(number_to_words_ru(int(group)))
+    return " ".join(parts)
 
 
 def verbalize_by_mode(value: str, mode: str, config: Mapping[str, Sequence[int]]) -> str:
