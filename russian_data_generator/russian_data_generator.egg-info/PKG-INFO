@@ -1,6 +1,0 @@
-Metadata-Version: 2.4
-Name: russian_data_generator
-Version: 0.1.0
-Summary: Генератор синтетических персональных данных с вербализацией
-Requires-Python: >=3.10
-Requires-Dist: num2words>=0.5.13
