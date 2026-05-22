@@ -1,6 +1,6 @@
-from ml.core.types import AnnotationSet
-from ml.datasets.base import Dataset
-from ml.metrics.base import Metric
+from anonmed.ml.core.types import AnnotationSet
+from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.metrics.base import Metric
 
 
 class ExampleCountMetric(Metric):

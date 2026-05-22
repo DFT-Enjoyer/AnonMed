@@ -1,8 +1,7 @@
-from . import (
+from .types import (
     AnnotationSet,
     AnnotationSetLine,
     Case,
-    DatasetSnapshotWriter,
     EvaluationReport,
     MetricResult,
     MetricValue,
@@ -17,7 +16,6 @@ __all__ = [
     "AnnotationSet",
     "AnnotationSetLine",
     "Case",
-    "DatasetSnapshotWriter",
     "EvaluationReport",
     "MetricResult",
     "MetricValue",

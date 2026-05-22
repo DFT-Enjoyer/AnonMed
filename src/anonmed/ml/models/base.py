@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from ml.core.types import AnnotationSet, TextDocument
+from anonmed.ml.core.types import AnnotationSet, TextDocument
+
+if TYPE_CHECKING:
+    from anonmed.ml.datasets.base import Dataset
 
 
 class PIIModel(ABC):
@@ -19,4 +23,10 @@ class PIIModel(ABC):
 
     @abstractmethod
     def predict(self, document) -> AnnotationSet:
+        ...
+
+
+@runtime_checkable
+class TrainablePIIModel(Protocol):
+    def fit(self, dataset: "Dataset") -> object:
         ...

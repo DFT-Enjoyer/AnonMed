@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Any
 
-from ml.core.types import AnnotationSet, AnnotationSetLine, Case, Role, TextDocument, TextLine
-from ml.datasets.base import Dataset
+from anonmed.ml.core.types import AnnotationSet, AnnotationSetLine, Case, Role, TextDocument, TextLine
+from anonmed.ml.datasets.base import Dataset
 
 
 @dataclass(frozen=True)

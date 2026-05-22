@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from ml.datasets.base import Dataset
-from ml.core.types import AnnotationSet
+from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.core.types import AnnotationSet
 
 
 class Metric(ABC):

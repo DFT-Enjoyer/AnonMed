@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from ml.core.types import Case, TextDocument
+from anonmed.ml.core.types import Case, TextDocument
 
 
 @dataclass(frozen=True)

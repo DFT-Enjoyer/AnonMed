@@ -22,8 +22,16 @@ api = [
   "fastapi>=0.110",
   "uvicorn>=0.27"
 ]
+ml = [
+  "PyYAML>=6.0"
+]
+tools = [
+  "num2words>=0.5.13",
+  "requests>=2.31"
+]
 dev = [
-  "pytest>=8.0"
+  "pytest>=8.0",
+  "PyYAML>=6.0"
 ]
 
 [project.scripts]

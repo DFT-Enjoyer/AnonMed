@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ml.core.types import AnnotationSet, Case, Span, TextDocument
+from anonmed.ml.core.types import AnnotationSet, Case, Span, TextDocument
 
 
 @dataclass(frozen=True, slots=True)
