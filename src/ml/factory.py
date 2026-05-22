@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 
+from ml.core.snapshot import DatasetSnapshotWriter
 from ml.core.types import EvaluationReport
 from ml.datasets.base import Dataset
 from ml.evaluation.evaluator import Evaluator
@@ -20,11 +21,17 @@ def evaluate(
     return evaluator.eval_model(model=model, metrics=metrics)
 
 
+def create_dataset_snapshot_writer() -> DatasetSnapshotWriter:
+    return DatasetSnapshotWriter()
+
+
 __all__ = [
     "Dataset",
+    "DatasetSnapshotWriter",
     "Evaluator",
     "Metric",
     "PIIModel",
+    "create_dataset_snapshot_writer",
     "create_evaluator",
     "evaluate",
 ]
