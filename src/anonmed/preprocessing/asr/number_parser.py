@@ -218,6 +218,61 @@ def parse_digit_or_mixed(tokens: list[NumericToken]) -> Candidate | None:
     return candidate
 
 
+def parse_concatenated_numeric_chunks(tokens: list[NumericToken], config: ExtractorConfig) -> Candidate | None:
+    if len(tokens) < 2:
+        return None
+
+    parts: list[str] = []
+    index: int = 0
+    chunk_count: int = 0
+    while index < len(tokens):
+        best_candidate: Candidate | None = None
+        best_consumed: int = 0
+        for end_index in range(len(tokens), index, -1):
+            prefix: list[NumericToken] = tokens[index:end_index]
+            prefix_candidate: Candidate | None = None
+
+            digit_candidate: Candidate | None = parse_digit_or_mixed(prefix)
+            if digit_candidate is not None:
+                prefix_candidate = digit_candidate
+
+            sequence_candidate: Candidate | None = parse_digit_sequence(prefix)
+            if sequence_candidate is not None and len(prefix) >= config.digit_sequence_min_tokens:
+                prefix_candidate = sequence_candidate
+
+            cardinal_candidate: Candidate | None = parse_cardinal(prefix)
+            if cardinal_candidate is not None:
+                if prefix_candidate is None or len(prefix) > best_consumed:
+                    prefix_candidate = cardinal_candidate
+
+            if prefix_candidate is None:
+                continue
+
+            best_candidate = prefix_candidate
+            best_consumed = len(prefix)
+            break
+
+        if best_candidate is None:
+            return None
+
+        if best_candidate.value.startswith("-"):
+            return None
+
+        parts.append(best_candidate.value)
+        chunk_count += 1
+        index += best_consumed
+
+    if chunk_count < 2:
+        return None
+
+    return Candidate(
+        value="".join(parts),
+        kind="mixed",
+        confidence=0.94,
+        reason="concatenated numeric chunks",
+    )
+
+
 def trim_integer_tokens(tokens: list[NumericToken]) -> tuple[list[NumericToken], bool]:
     trimmed: list[NumericToken] = []
     has_fraction_tail: bool = False
@@ -259,6 +314,10 @@ def parse_numeric_tokens(tokens: list[NumericToken], config: ExtractorConfig) ->
     cardinal_candidate: Candidate | None = parse_cardinal(trimmed_tokens)
     if cardinal_candidate is not None:
         candidates.append(cardinal_candidate)
+
+    concatenated_candidate: Candidate | None = parse_concatenated_numeric_chunks(trimmed_tokens, config)
+    if concatenated_candidate is not None:
+        candidates.append(concatenated_candidate)
 
     if not candidates:
         return None
@@ -307,6 +366,7 @@ __all__: list[str] = [
     "is_fraction_marker",
     "is_negative_marker",
     "parse_cardinal",
+    "parse_concatenated_numeric_chunks",
     "parse_digit_or_mixed",
     "parse_digit_sequence",
     "parse_numeric_tokens",

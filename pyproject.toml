@@ -28,10 +28,9 @@ dev = [
 
 [project.scripts]
 anonmed-preprocess = "anonmed.cli:main"
-asr-integer-extract = "asr_integer_extractor.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/anonmed", "src/asr_integer_extractor"]
+packages = ["src/anonmed"]
 
 [tool.ruff]
 line-length = 100

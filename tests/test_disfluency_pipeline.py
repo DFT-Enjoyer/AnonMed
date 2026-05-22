@@ -5,7 +5,7 @@ import subprocess
 import sys
 import unittest
 
-from asr_integer_extractor import (
+from anonmed.preprocessing import (
     ASRNormalizationPipeline,
     DisfluencyFilter,
     PunctuationFilterConfig,
@@ -73,7 +73,7 @@ class DisfluencyPipelineTests(unittest.TestCase):
 
     def test_cli_run_uses_complete_pipeline(self) -> None:
         completed_process: subprocess.CompletedProcess[str] = subprocess.run(
-            [sys.executable, "-m", "asr_integer_extractor.cli", "ну", "один", "два", "--run"],
+            [sys.executable, "-m", "anonmed.cli", "ну", "один", "два", "--run"],
             capture_output=True,
             text=True,
             check=False,

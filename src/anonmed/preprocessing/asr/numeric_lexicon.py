@@ -2,6 +2,61 @@ from __future__ import annotations
 
 from typing import Final
 
+
+def _hard_ordinal_forms(stem: str) -> tuple[str, ...]:
+    return (
+        f"{stem}ый",
+        f"{stem}ая",
+        f"{stem}ое",
+        f"{stem}ые",
+        f"{stem}ого",
+        f"{stem}ой",
+        f"{stem}ую",
+        f"{stem}ому",
+        f"{stem}ым",
+        f"{stem}ом",
+        f"{stem}ыми",
+        f"{stem}ых",
+    )
+
+
+def _oy_ordinal_forms(stem: str) -> tuple[str, ...]:
+    return (
+        f"{stem}ой",
+        f"{stem}ая",
+        f"{stem}ое",
+        f"{stem}ые",
+        f"{stem}ого",
+        f"{stem}ой",
+        f"{stem}ую",
+        f"{stem}ому",
+        f"{stem}ым",
+        f"{stem}ом",
+        f"{stem}ыми",
+        f"{stem}ых",
+    )
+
+
+def _third_ordinal_forms() -> tuple[str, ...]:
+    return (
+        "третий",
+        "третья",
+        "третье",
+        "третьи",
+        "третьего",
+        "третьей",
+        "третью",
+        "третьему",
+        "третьим",
+        "третьем",
+        "третьими",
+        "третьих",
+    )
+
+
+def _ordinal_aliases(canonical: str, forms: tuple[str, ...]) -> dict[str, str]:
+    return {form: canonical for form in forms}
+
 DIGIT_WORDS: Final[dict[str, int]] = {
     "ноль": 0,
     "нуль": 0,
@@ -59,6 +114,8 @@ CASE_DIGIT_ALIASES: Final[dict[str, str]] = {
     "одному": "один",
     "одним": "один",
     "одной": "один",
+    "одном": "один",
+    "одною": "один",
     "одну": "один",
     "двух": "два",
     "двум": "два",
@@ -213,6 +270,7 @@ SCALE_ALIASES: Final[dict[str, str]] = {
     "миллионов": "миллион",
     "миллиону": "миллион",
     "миллионом": "миллион",
+    "миллионе": "миллион",
     "миллионам": "миллион",
     "миллионами": "миллион",
     "миллионах": "миллион",
@@ -221,6 +279,7 @@ SCALE_ALIASES: Final[dict[str, str]] = {
     "миллиардов": "миллиард",
     "миллиарду": "миллиард",
     "миллиардом": "миллиард",
+    "миллиарде": "миллиард",
     "миллиардам": "миллиард",
     "миллиардами": "миллиард",
     "миллиардах": "миллиард",
@@ -228,6 +287,7 @@ SCALE_ALIASES: Final[dict[str, str]] = {
     "триллионов": "триллион",
     "триллиону": "триллион",
     "триллионом": "триллион",
+    "триллионе": "триллион",
     "триллионам": "триллион",
     "триллионами": "триллион",
     "триллионах": "триллион",
@@ -284,12 +344,57 @@ ASR_ALIASES: Final[dict[str, str]] = {
     "милен": "миллион",
 }
 
+ORDINAL_ALIASES: Final[dict[str, str]] = {
+    **_ordinal_aliases("ноль", _oy_ordinal_forms("нулев")),
+    **_ordinal_aliases("один", _hard_ordinal_forms("перв")),
+    **_ordinal_aliases("два", _oy_ordinal_forms("втор")),
+    **_ordinal_aliases("три", _third_ordinal_forms()),
+    **_ordinal_aliases("четыре", _hard_ordinal_forms("четверт")),
+    **_ordinal_aliases("пять", _hard_ordinal_forms("пят")),
+    **_ordinal_aliases("шесть", _oy_ordinal_forms("шест")),
+    **_ordinal_aliases("семь", _oy_ordinal_forms("седьм")),
+    **_ordinal_aliases("восемь", _oy_ordinal_forms("восьм")),
+    **_ordinal_aliases("девять", _hard_ordinal_forms("девят")),
+    **_ordinal_aliases("десять", _hard_ordinal_forms("десят")),
+    **_ordinal_aliases("одиннадцать", _hard_ordinal_forms("одиннадцат")),
+    **_ordinal_aliases("двенадцать", _hard_ordinal_forms("двенадцат")),
+    **_ordinal_aliases("тринадцать", _hard_ordinal_forms("тринадцат")),
+    **_ordinal_aliases("четырнадцать", _hard_ordinal_forms("четырнадцат")),
+    **_ordinal_aliases("пятнадцать", _hard_ordinal_forms("пятнадцат")),
+    **_ordinal_aliases("шестнадцать", _hard_ordinal_forms("шестнадцат")),
+    **_ordinal_aliases("семнадцать", _hard_ordinal_forms("семнадцат")),
+    **_ordinal_aliases("восемнадцать", _hard_ordinal_forms("восемнадцат")),
+    **_ordinal_aliases("девятнадцать", _hard_ordinal_forms("девятнадцат")),
+    **_ordinal_aliases("двадцать", _hard_ordinal_forms("двадцат")),
+    **_ordinal_aliases("тридцать", _hard_ordinal_forms("тридцат")),
+    **_ordinal_aliases("сорок", _oy_ordinal_forms("сороков")),
+    **_ordinal_aliases("пятьдесят", _hard_ordinal_forms("пятидесят")),
+    **_ordinal_aliases("шестьдесят", _hard_ordinal_forms("шестидесят")),
+    **_ordinal_aliases("семьдесят", _hard_ordinal_forms("семидесят")),
+    **_ordinal_aliases("восемьдесят", _hard_ordinal_forms("восьмидесят")),
+    **_ordinal_aliases("девяносто", _hard_ordinal_forms("девяност")),
+    **_ordinal_aliases("сто", _hard_ordinal_forms("сот")),
+    **_ordinal_aliases("двести", _hard_ordinal_forms("двухсот")),
+    **_ordinal_aliases("триста", _hard_ordinal_forms("трехсот")),
+    **_ordinal_aliases("четыреста", _hard_ordinal_forms("четырехсот")),
+    **_ordinal_aliases("пятьсот", _hard_ordinal_forms("пятисот")),
+    **_ordinal_aliases("шестьсот", _hard_ordinal_forms("шестисот")),
+    **_ordinal_aliases("семьсот", _hard_ordinal_forms("семисот")),
+    **_ordinal_aliases("восемьсот", _hard_ordinal_forms("восьмисот")),
+    **_ordinal_aliases("девятьсот", _hard_ordinal_forms("девятисот")),
+    **_ordinal_aliases("тысяча", _hard_ordinal_forms("тысячн")),
+    **_ordinal_aliases("миллион", _hard_ordinal_forms("миллионн")),
+    **_ordinal_aliases("миллиард", _hard_ordinal_forms("миллиардн")),
+    **_ordinal_aliases("триллион", _hard_ordinal_forms("триллионн")),
+}
+
 ALIASES: Final[dict[str, str]] = {
     **CASE_DIGIT_ALIASES,
     **CASE_TEEN_ALIASES,
     **CASE_TEN_ALIASES,
     **CASE_HUNDRED_ALIASES,
     **SCALE_ALIASES,
+    **ORDINAL_ALIASES,
     **ASR_ALIASES,
 }
 
@@ -385,6 +490,7 @@ __all__: list[str] = [
     "NEGATIVE_WORDS",
     "NUMERAL_CONTEXT_WORDS",
     "NUMERIC_WORDS",
+    "ORDINAL_ALIASES",
     "SCALE_ALIASES",
     "SCALES",
     "TEENS",
