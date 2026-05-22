@@ -121,7 +121,7 @@ class AnnotationSetLine:
 
 @dataclass(frozen=True, slots=True)
 class AnnotationSet:
-    lines: tuple[AnnotationSetLine]
+    lines: tuple[AnnotationSetLine, ...]
     idx: str | None = None
 
     def __post_init__(self) -> None:
