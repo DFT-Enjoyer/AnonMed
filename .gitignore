@@ -1,3 +1,7 @@
 artifacts
 instructions.md
 review.md
+.venv
+venv
+env
+.env
