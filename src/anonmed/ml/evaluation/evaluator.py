@@ -1,9 +1,9 @@
 from collections.abc import Sequence
 
-from ml.datasets.base import Dataset
-from ml.metrics.base import Metric
-from ml.models.base import PIIModel
-from ml.core.types import AnnotationSet, EvaluationReport, MetricResult
+from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.metrics.base import Metric
+from anonmed.ml.models.base import PIIModel
+from anonmed.ml.core.types import AnnotationSet, EvaluationReport, MetricResult
 
 
 class Evaluator:

@@ -5,8 +5,8 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from ml.datasets.base import Dataset
-from ml.core.types import AnnotationSetLine, Case, Span, TextLine
+from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.core.types import AnnotationSetLine, Case, Span, TextLine
 
 
 class DatasetSnapshotWriter:

@@ -1,5 +1,5 @@
-from ml.core.types import AnnotationSet, AnnotationSetLine, TextDocument
-from ml.models.base import PIIModel
+from anonmed.ml.core.types import AnnotationSet, AnnotationSetLine, TextDocument
+from anonmed.ml.models.base import PIIModel
 
 
 class ExamplePIIModel(PIIModel):

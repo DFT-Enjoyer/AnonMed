@@ -1,7 +1,7 @@
-from ml.core.types import AnnotationSet
-from ml.datasets.base import Dataset
-from ml.metrics.base import Metric
-from ml.metrics.utils import coverage_percent
+from anonmed.ml.core.types import AnnotationSet
+from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.metrics.base import Metric
+from anonmed.ml.metrics.utils import coverage_percent
 
 
 class CoveragePercentMetric(Metric):
