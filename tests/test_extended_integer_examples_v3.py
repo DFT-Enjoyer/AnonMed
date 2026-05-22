@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import unittest
 
-from asr_integer_extractor import IntegerExtractor, IntegerSpan, replace_integer_spans
+from anonmed.preprocessing import IntegerExtractor, IntegerSpan, replace_integer_spans
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +32,10 @@ _SIMPLE_EXTRACTION_CASES: tuple[ExtractionCase, ...] = (
     ExtractionCase("один", ("1",)),
     ExtractionCase("одна", ("1",)),
     ExtractionCase("одно", ("1",)),
+    ExtractionCase("четвертый", ("4",)),
+    ExtractionCase("пятый", ("5",)),
+    ExtractionCase("шестой", ("6",)),
+    ExtractionCase("седьмой", ("7",)),
     ExtractionCase("раз", ("1",)),
     ExtractionCase("два", ("2",)),
     ExtractionCase("две", ("2",)),
@@ -126,6 +130,7 @@ _INFLECTED_UNIT_CASES: tuple[ExtractionCase, ...] = (
     ExtractionCase("к одному", ("1",)),
     ExtractionCase("с одним", ("1",)),
     ExtractionCase("для одной", ("1",)),
+    ExtractionCase("в одном", ("1",)),
     ExtractionCase("вижу одну", ("1",)),
     ExtractionCase("до двух", ("2",)),
     ExtractionCase("к двум", ("2",)),
@@ -146,6 +151,27 @@ _INFLECTED_UNIT_CASES: tuple[ExtractionCase, ...] = (
     ExtractionCase("с восемью", ("8",)),
     ExtractionCase("до девяти", ("9",)),
     ExtractionCase("с девятью", ("9",)),
+)
+
+_ORDINAL_CASES: tuple[ExtractionCase, ...] = (
+    ExtractionCase("первый", ("1",)),
+    ExtractionCase("вторую", ("2",)),
+    ExtractionCase("третьем", ("3",)),
+    ExtractionCase("четвертый", ("4",)),
+    ExtractionCase("четвертую", ("4",)),
+    ExtractionCase("шестом", ("6",)),
+    ExtractionCase("восьмое", ("8",)),
+    ExtractionCase("девятых", ("9",)),
+    ExtractionCase("десятому", ("10",)),
+    ExtractionCase("одиннадцатая", ("11",)),
+    ExtractionCase("двадцатый", ("20",)),
+    ExtractionCase("сороковой", ("40",)),
+    ExtractionCase("сотый", ("100",)),
+    ExtractionCase("двухсотый", ("200",)),
+    ExtractionCase("тысячном", ("1000",)),
+    ExtractionCase("двадцать первый", ("21",)),
+    ExtractionCase("к двадцать первому", ("21",)),
+    ExtractionCase("до сорокового", ("40",)),
 )
 
 _INFLECTED_TENS_CASES: tuple[ExtractionCase, ...] = (
@@ -271,6 +297,7 @@ _INFLECTED_SCALE_CASES: tuple[ExtractionCase, ...] = (
     ExtractionCase("до миллиона", ("1000000",)),
     ExtractionCase("к миллиону", ("1000000",)),
     ExtractionCase("с миллионом", ("1000000",)),
+    ExtractionCase("о миллионе", ("1000000",)),
     ExtractionCase("до двух миллионов", ("2000000",)),
     ExtractionCase("к двум миллионам", ("2000000",)),
     ExtractionCase("с двумя миллионами", ("2000000",)),
@@ -414,6 +441,9 @@ class ExtendedIntegerExtractionSpecificationTests(unittest.TestCase):
     def test_inflected_units(self) -> None:
         self.assert_cases(_INFLECTED_UNIT_CASES)
 
+    def test_ordinals(self) -> None:
+        self.assert_cases(_ORDINAL_CASES)
+
     def test_inflected_tens(self) -> None:
         self.assert_cases(_INFLECTED_TENS_CASES)
 
@@ -462,6 +492,7 @@ class ExtendedIntegerExtractionSpecificationTests(unittest.TestCase):
             + _DIGIT_SEQUENCE_CASES
             + _MIXED_CARDINAL_CASES
             + _INFLECTED_UNIT_CASES
+            + _ORDINAL_CASES
             + _INFLECTED_TENS_CASES
             + _INFLECTED_TENS_WITH_UNITS_CASES
             + _INFLECTED_HUNDREDS_CASES

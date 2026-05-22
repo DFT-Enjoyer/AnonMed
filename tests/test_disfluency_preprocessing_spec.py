@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Callable
 import unittest
 
-from asr_integer_extractor import DisfluencyFilter, DisfluencyFilterConfig, remove_disfluencies
+from anonmed.preprocessing import DisfluencyFilter, DisfluencyFilterConfig, remove_disfluencies
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,13 +79,13 @@ _DEFAULT_CASES: tuple[PreprocessingCase, ...] = (
     PreprocessingCase("phrase_multiple_same", "как бы номер как бы один", "номер один"),
     PreprocessingCase("phrase_multiple_different", "как бы номер это самое один", "номер один"),
     PreprocessingCase("phrase_with_hesitation_between", "как бы эм номер один", "номер один"),
-    # Conservative discourse markers: remove at utterance or pause boundaries, not inside content.
+    # Exact filler tokens are removed by token identity; legacy contextual markers stay conservative.
     PreprocessingCase("marker_nu_leading", "ну номер один", "номер один"),
     PreprocessingCase("marker_nu_leading_comma", "ну, номер один", "номер один"),
     PreprocessingCase("marker_nu_inner_comma", "номер, ну, один", "номер один"),
     PreprocessingCase("marker_nu_after_period", "текст. ну номер один", "текст. номер один"),
     PreprocessingCase("marker_nu_trailing_comma", "номер один, ну", "номер один"),
-    PreprocessingCase("marker_nu_content_position_kept", "номер ну один", "номер ну один"),
+    PreprocessingCase("marker_nu_content_position_removed", "номер ну один", "номер один"),
     PreprocessingCase("marker_a_leading", "а номер один", "номер один"),
     PreprocessingCase("marker_a_leading_comma", "а, номер один", "номер один"),
     PreprocessingCase("marker_a_inner_comma", "номер, а, один", "номер один"),
@@ -93,7 +93,24 @@ _DEFAULT_CASES: tuple[PreprocessingCase, ...] = (
     PreprocessingCase("marker_vot_leading", "вот номер один", "номер один"),
     PreprocessingCase("marker_vot_leading_comma", "вот, номер один", "номер один"),
     PreprocessingCase("marker_vot_inner_comma", "номер, вот, один", "номер один"),
-    PreprocessingCase("marker_vot_content_position_kept", "номер вот один", "номер вот один"),
+    PreprocessingCase("marker_vot_content_position_removed", "номер вот один", "номер один"),
+    PreprocessingCase("marker_davaite_leading", "давайте номер один", "номер один"),
+    PreprocessingCase("marker_davaite_inner", "номер давайте один", "номер один"),
+    PreprocessingCase("marker_podozhdite_leading", "подождите номер один", "номер один"),
+    PreprocessingCase("marker_pozhaluysta_inner", "номер пожалуйста один", "номер один"),
+    PreprocessingCase("marker_spasibo_trailing", "номер один спасибо", "номер один"),
+    PreprocessingCase("marker_ponyatno_inner", "номер понятно один", "номер один"),
+    PreprocessingCase("marker_pryam_inner", "номер прям один", "номер один"),
+    PreprocessingCase("marker_uzhe_inner", "номер уже один", "номер один"),
+    PreprocessingCase("marker_zdravstvuite_leading", "здравствуйте номер один", "номер один"),
+    PreprocessingCase(
+        "marker_full_dialogue_cleanup",
+        (
+            "здравствуйте проходите садитесь что вас сегодня привело "
+            "здравствуйте вот мальчик мой кашляет уже ну кашель примерно пять дней"
+        ),
+        "проходите садитесь что вас сегодня привело мальчик мой кашляет кашель примерно пять дней",
+    ),
     PreprocessingCase("marker_znachit_leading", "значит номер один", "номер один"),
     PreprocessingCase("marker_znachit_leading_comma", "значит, номер один", "номер один"),
     PreprocessingCase("marker_znachit_inner_comma", "номер, значит, один", "номер один"),
@@ -105,11 +122,11 @@ _DEFAULT_CASES: tuple[PreprocessingCase, ...] = (
     PreprocessingCase("marker_chain_leading", "ну а вот номер один", "номер один"),
     PreprocessingCase("marker_chain_punctuated", "ну, а, вот, номер один", "номер один"),
     PreprocessingCase("marker_chain_mixed", "ну, эм, вот, номер один", "номер один"),
-    # Interjections are removed only when isolated by a boundary; embedded lexical uses are preserved.
+    # Interjections are matched by whole token, so "ой" is removable without touching longer words.
     PreprocessingCase("interjection_oy_leading", "ой, номер один", "номер один"),
     PreprocessingCase("interjection_oy_trailing", "номер один, ой", "номер один"),
     PreprocessingCase("interjection_oy_isolated_inner", "номер, ой, один", "номер один"),
-    PreprocessingCase("interjection_oy_content_position_kept", "номер ой один", "номер ой один"),
+    PreprocessingCase("interjection_oy_content_position_removed", "номер ой один", "номер один"),
     PreprocessingCase("interjection_ah_leading", "ах, номер один", "номер один"),
     PreprocessingCase("interjection_ah_trailing", "номер один, ах", "номер один"),
     PreprocessingCase("interjection_ah_content_position_kept", "номер ах один", "номер ах один"),
@@ -139,6 +156,8 @@ _DEFAULT_CASES: tuple[PreprocessingCase, ...] = (
     PreprocessingCase("false_positive_a_inside_word", "адрес номер один", "адрес номер один"),
     PreprocessingCase("false_positive_m_inside_word", "метка номер один", "метка номер один"),
     PreprocessingCase("false_positive_hm_inside_word", "хмурый день", "хмурый день"),
+    PreprocessingCase("false_positive_pryamo", "прямо номер один", "прямо номер один"),
+    PreprocessingCase("false_positive_pryamoy", "прямой номер один", "прямой номер один"),
     # Space and punctuation normalization after deletion.
     PreprocessingCase("spacing_multiple_spaces", "эм   номер    один", "номер один"),
     PreprocessingCase("spacing_tabs", "эм\tномер\tодин", "номер один"),

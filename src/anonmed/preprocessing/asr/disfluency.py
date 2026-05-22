@@ -32,22 +32,40 @@ _HESITATION_WORDS: Final[frozenset[str]] = frozenset(
     }
 )
 
-_INTERJECTION_WORDS: Final[frozenset[str]] = frozenset(
+_EXACT_INTERJECTION_WORDS: Final[frozenset[str]] = frozenset(
+    {
+        "ой",
+    }
+)
+
+_BOUNDARY_INTERJECTION_WORDS: Final[frozenset[str]] = frozenset(
     {
         "ах",
-        "ой",
         "ох",
         "ух",
         "эх",
     }
 )
 
-_DISCOURSE_MARKERS: Final[frozenset[str]] = frozenset(
+_EXACT_DISCOURSE_MARKERS: Final[frozenset[str]] = frozenset(
+    {
+        "вот",
+        "ну",
+        "уже",
+        "давайте",
+        "подождите",
+        "пожалуйста",
+        "спасибо",
+        "понятно",
+        "прям",
+        "здравствуйте",
+    }
+)
+
+_CONTEXTUAL_DISCOURSE_MARKERS: Final[frozenset[str]] = frozenset(
     {
         "а",
-        "вот",
         "значит",
-        "ну",
         "типа",
     }
 )
@@ -122,12 +140,30 @@ class DisfluencyFilter:
                 tokens,
                 removed_token_indexes,
                 removed_spans,
-                vocabulary=_INTERJECTION_WORDS,
+                vocabulary=_EXACT_INTERJECTION_WORDS,
+                reason="interjection",
+                context_required=False,
+            )
+            self._collect_single_word_class(
+                text,
+                tokens,
+                removed_token_indexes,
+                removed_spans,
+                vocabulary=_BOUNDARY_INTERJECTION_WORDS,
                 reason="interjection",
                 context_required=True,
             )
 
         if self.config.remove_discourse_markers:
+            self._collect_single_word_class(
+                text,
+                tokens,
+                removed_token_indexes,
+                removed_spans,
+                vocabulary=_EXACT_DISCOURSE_MARKERS,
+                reason="discourse_marker",
+                context_required=False,
+            )
             self._collect_discourse_markers(text, tokens, removed_token_indexes, removed_spans)
 
         normalized_spans: list[RemovedSpan] = _merge_removed_spans(removed_spans)
@@ -248,7 +284,7 @@ class DisfluencyFilter:
             if index in removed_token_indexes or token.kind != "word":
                 continue
             normalized: str = _canonical_token_text(token)
-            if normalized not in _DISCOURSE_MARKERS:
+            if normalized not in _CONTEXTUAL_DISCOURSE_MARKERS:
                 continue
             can_remove: bool = (
                 self.config.aggressive_discourse_markers

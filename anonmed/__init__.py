@@ -18,11 +18,29 @@ from .preprocessing import (  # noqa: E402
     ASRTextPreprocessingResult,
     run_asr_normalization,
 )
+from .anonymization import (  # noqa: E402
+    NumericPIIMatch,
+    NumericPIIPipelineResult,
+    NumericPIIRule,
+    NumericPIIType,
+    build_default_numeric_rules,
+    find_numeric_pii,
+    mask_numeric_pii,
+    run_numeric_pii_pipeline,
+)
 
 __all__: list[str] = [
     "ASRNormalizationPipeline",
     "ASRNormalizationResult",
     "ASRTextPreprocessingPipeline",
     "ASRTextPreprocessingResult",
+    "NumericPIIMatch",
+    "NumericPIIPipelineResult",
+    "NumericPIIRule",
+    "NumericPIIType",
+    "build_default_numeric_rules",
+    "find_numeric_pii",
+    "mask_numeric_pii",
+    "run_numeric_pii_pipeline",
     "run_asr_normalization",
 ]

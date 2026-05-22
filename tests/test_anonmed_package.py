@@ -5,6 +5,7 @@ import subprocess
 import sys
 import unittest
 
+from anonmed.anonymization import find_numeric_pii, mask_numeric_pii, run_numeric_pii_pipeline
 from anonmed.preprocessing import (
     ASRTextPreprocessingPipeline,
     PunctuationFilterConfig,
@@ -41,6 +42,19 @@ class AnonMedPackageTests(unittest.TestCase):
             punctuation_config=PunctuationFilterConfig(enabled=False),
         )
         self.assertEqual(result.cleaned_text, "номер: один два")
+
+    def test_anonymization_exports_numeric_pii_helpers(self) -> None:
+        matches = find_numeric_pii("телефон 89131234567")
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(mask_numeric_pii("телефон 89131234567"), "телефон [PHONE]")
+
+    def test_project_level_numeric_pii_pipeline_runs_with_preprocessing(self) -> None:
+        result = run_numeric_pii_pipeline(
+            "телефон восемь девять один три один два три четыре пять шесть семь"
+        )
+        self.assertEqual(result.preprocessing_result.normalized_text, "телефон 89131234567")
+        self.assertEqual([match.normalized_value for match in result.matches], ["+79131234567"])
+        self.assertEqual(result.masked_text, "телефон [PHONE]")
 
     def test_cli_entrypoint_works_for_new_package_name(self) -> None:
         repository_root: Path = Path(__file__).resolve().parents[1]

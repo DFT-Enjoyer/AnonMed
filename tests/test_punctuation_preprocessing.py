@@ -5,7 +5,7 @@ import subprocess
 import sys
 import unittest
 
-from asr_integer_extractor import (
+from anonmed.preprocessing import (
     ASRNormalizationPipeline,
     PunctuationRemovalConfig,
     PunctuationRemover,
@@ -173,7 +173,7 @@ class PunctuationPreprocessingTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "asr_integer_extractor.cli",
+                "anonmed.cli",
                 "сайт",
                 "example.com,",
                 "номер:",
@@ -192,7 +192,7 @@ class PunctuationPreprocessingTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "asr_integer_extractor.cli",
+                "anonmed.cli",
                 "ну,",
                 "сайт",
                 "example.com,",
@@ -213,7 +213,7 @@ class PunctuationPreprocessingTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "asr_integer_extractor.cli",
+                "anonmed.cli",
                 "номер:",
                 "один",
                 "два",
