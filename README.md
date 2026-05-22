@@ -299,3 +299,7 @@ For local debugging:
 4. Then inspect `artifacts/.../dataset_after_model.jsonl` to see what was actually matched and masked.
 
 That usually makes it clear whether an error comes from spoken-number normalization or from the numeric PII rules themselves.
+
+## Url to datasets
+
+https://disk.360.yandex.ru/d/m4rh5c9qIxh3rg

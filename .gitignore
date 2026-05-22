@@ -1,7 +1,11 @@
 artifacts
 instructions.md
 review.md
-
+.venv
+venv
+env
+.env
 __pycache__/
 *.py[cod]
 .pytest_cache/
+*.egg-info/

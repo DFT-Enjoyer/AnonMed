@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "russian_data_generator"
+version = "0.1.0"
+description = "Генератор синтетических персональных данных с вербализацией"
+requires-python = ">=3.10"
+dependencies = [
+    "num2words>=0.5.13"
+]
+
+[tool.setuptools]
+packages = [
+    "russian_data_generator",
+    "russian_data_generator.config",
+    "russian_data_generator.formatting",
+    "russian_data_generator.generators",
+    "russian_data_generator.tests"
+]
+package-dir = {"russian_data_generator" = "."}
