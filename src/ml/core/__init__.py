@@ -1,3 +1,4 @@
+from .snapshot import DatasetSnapshotWriter
 from .types import (
     AnnotationSet,
     AnnotationSetLine,
@@ -16,6 +17,7 @@ __all__ = [
     "AnnotationSet",
     "AnnotationSetLine",
     "Case",
+    "DatasetSnapshotWriter",
     "EvaluationReport",
     "MetricResult",
     "MetricValue",

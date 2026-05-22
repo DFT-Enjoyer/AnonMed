@@ -16,6 +16,7 @@ class ExampleCountMetric(Metric):
         dataset: Dataset,
         predictions: tuple[AnnotationSet, ...],
     ) -> dict[str, int]:
+        self._validate_inputs(dataset, predictions)
         return {
             "predictions_count": len(predictions),
             "cases_count": len(dataset.cases),
