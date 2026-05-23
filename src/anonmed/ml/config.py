@@ -172,7 +172,7 @@ def _run_config(raw: object) -> RunConfig:
     return RunConfig(name=str(mapping.get("name", "default")))
 
 
-def _component_config(raw: object, section: str, cls: type[DatasetConfig] | type[ModelConfig]):
+def _component_config(raw: object, section: str, cls: type[DatasetConfig] | type[ModelConfig]) -> Any:
     if raw is None:
         raise ValueError(f"Missing required config section: {section}.")
     if isinstance(raw, str):
