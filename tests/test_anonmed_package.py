@@ -82,5 +82,29 @@ class AnonMedPackageTests(unittest.TestCase):
         )
         self.assertEqual(completed_process.stdout.strip(), "номер 12")
 
+    def test_cli_run_can_enable_repetition_deduplication(self) -> None:
+        repository_root: Path = Path(__file__).resolve().parents[1]
+        command: list[str] = [
+            sys.executable,
+            "-m",
+            "anonmed.cli",
+            "номер один два\nномер один два",
+            "--run",
+            "--deduplicate-repetitions",
+        ]
+        completed_process: subprocess.CompletedProcess[str] = subprocess.run(
+            command,
+            cwd=repository_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            completed_process.returncode,
+            0,
+            msg=completed_process.stderr or completed_process.stdout,
+        )
+        self.assertEqual(completed_process.stdout.strip(), "номер 12")
+
 
 __all__: list[str] = []

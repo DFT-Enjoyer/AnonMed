@@ -126,6 +126,7 @@ class EvaluatedRecord:
     predictions: tuple[NumericPrediction, ...]
     preprocessed_text: str
     masked_text: str
+    repetition_suppressed_indexes: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -375,11 +376,18 @@ def load_annotations(record: dict[str, object]) -> list[NumericAnnotation]:
     return annotations
 
 
-def load_predictions(record: dict[str, object]) -> tuple[list[NumericPrediction], str, str]:
+def load_predictions(
+    record: dict[str, object],
+    *,
+    deduplicate_repetitions: bool = False,
+) -> tuple[list[NumericPrediction], str, str, tuple[int, ...]]:
     record_id: int = int(record["id"])
     text: str = str(record["value"])
     predictions: list[NumericPrediction] = []
-    pipeline_result = run_numeric_pii_pipeline(text)
+    pipeline_result = run_numeric_pii_pipeline(
+        text,
+        deduplicate_repetitions=deduplicate_repetitions,
+    )
     for match in pipeline_result.matches:
         predictions.append(
             NumericPrediction(
@@ -395,6 +403,7 @@ def load_predictions(record: dict[str, object]) -> tuple[list[NumericPrediction]
         predictions,
         pipeline_result.preprocessing_result.normalized_text,
         pipeline_result.masked_text,
+        pipeline_result.preprocessing_result.repetition_suppressed_indexes,
     )
 
 
@@ -571,14 +580,27 @@ def load_records(path: Path) -> list[dict[str, object]]:
     return records
 
 
-def evaluate_records(records: list[dict[str, object]]) -> list[EvaluatedRecord]:
+def evaluate_records(
+    records: list[dict[str, object]],
+    *,
+    deduplicate_repetitions: bool = False,
+) -> list[EvaluatedRecord]:
     evaluations: list[EvaluatedRecord] = []
     for record in records:
         annotations: list[NumericAnnotation] = load_annotations(record)
         predictions: list[NumericPrediction]
         preprocessed_text: str
         masked_text: str
-        predictions, preprocessed_text, masked_text = load_predictions(record)
+        repetition_suppressed_indexes: tuple[int, ...]
+        (
+            predictions,
+            preprocessed_text,
+            masked_text,
+            repetition_suppressed_indexes,
+        ) = load_predictions(
+            record,
+            deduplicate_repetitions=deduplicate_repetitions,
+        )
         evaluations.append(
             EvaluatedRecord(
                 source=record,
@@ -586,6 +608,7 @@ def evaluate_records(records: list[dict[str, object]]) -> list[EvaluatedRecord]:
                 predictions=tuple(predictions),
                 preprocessed_text=preprocessed_text,
                 masked_text=masked_text,
+                repetition_suppressed_indexes=repetition_suppressed_indexes,
             )
         )
     return evaluations
@@ -715,6 +738,8 @@ def write_artifacts(
     dataset_path: Path,
     evaluations: list[EvaluatedRecord],
     report: dict[str, object],
+    *,
+    deduplicate_repetitions: bool,
 ) -> None:
     preprocessed_rows: list[dict[str, object]] = []
     model_rows: list[dict[str, object]] = []
@@ -729,6 +754,9 @@ def write_artifacts(
                 "split": source.get("split"),
                 "original_text": source.get("value"),
                 "preprocessed_text": evaluation.preprocessed_text,
+                "repetition_suppressed_indexes": list(
+                    evaluation.repetition_suppressed_indexes
+                ),
             }
         )
         model_rows.append(
@@ -738,6 +766,9 @@ def write_artifacts(
                 "split": source.get("split"),
                 "preprocessed_text": evaluation.preprocessed_text,
                 "masked_text": evaluation.masked_text,
+                "repetition_suppressed_indexes": list(
+                    evaluation.repetition_suppressed_indexes
+                ),
                 "matches": [
                     {
                         "type": prediction.pii_type,
@@ -758,6 +789,7 @@ def write_artifacts(
         "dataset_path": str(dataset_path),
         "records": len(evaluations),
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "deduplicate_repetitions": deduplicate_repetitions,
         "files": {
             "preprocessed_dataset": "dataset_after_preprocessing.jsonl",
             "model_output_dataset": "dataset_after_model.jsonl",
@@ -804,14 +836,31 @@ def main() -> int:
         default="artifacts",
         help="Base directory for run artifacts. A run directory is created as artifacts/YYYY-MM-DD/HH-MM-SS.",
     )
+    parser.add_argument(
+        "--deduplicate-repetitions",
+        action="store_true",
+        help=(
+            "Enable the ASR repetition deduplication stage before numeric PII extraction. "
+            "This is off by default because it changes the evaluated text layer."
+        ),
+    )
     args = parser.parse_args()
 
     dataset_path = Path(args.jsonl_path)
     records = load_records(dataset_path)
-    evaluations = evaluate_records(records)
+    evaluations = evaluate_records(
+        records,
+        deduplicate_repetitions=args.deduplicate_repetitions,
+    )
     report = build_report(evaluations, soft_gap=args.soft_gap)
     artifact_dir = build_artifact_dir(Path(args.artifacts_root))
-    write_artifacts(artifact_dir, dataset_path, evaluations, report)
+    write_artifacts(
+        artifact_dir,
+        dataset_path,
+        evaluations,
+        report,
+        deduplicate_repetitions=args.deduplicate_repetitions,
+    )
 
     if args.json:
         print(json.dumps(report, ensure_ascii=False, indent=2))
@@ -820,6 +869,7 @@ def main() -> int:
     print(f"dataset: {dataset_path}")
     print(f"artifacts: {artifact_dir}")
     print(f"records: {report['records']}")
+    print(f"deduplicate repetitions: {args.deduplicate_repetitions}")
     print(
         "hard negatives: "
         f"{report['hard_negatives']['total']} total, "
