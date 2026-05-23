@@ -22,4 +22,4 @@ class ExampleDataset(Dataset):
 
 
 def build_example_dataset() -> ExampleDataset:
-    return ExampleDataset(cases=())
+    return ExampleDataset()

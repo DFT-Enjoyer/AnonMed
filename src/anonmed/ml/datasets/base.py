@@ -7,7 +7,7 @@ from anonmed.ml.core.types import Case, TextDocument
 
 @dataclass(frozen=True)
 class Dataset(ABC):
-    cases: tuple[Case, ...]
+    cases: tuple[Case, ...] = field(init=False)
     _row_data: Any = field(init=False)
 
     @property
