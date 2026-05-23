@@ -44,6 +44,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable punctuation removal in --run and --run-json modes.",
     )
     parser.add_argument(
+        "--deduplicate-repetitions",
+        action="store_true",
+        help="Deduplicate repeated ASR utterance lines in --run and --run-json modes.",
+    )
+    parser.add_argument(
+        "--normalize-document-numbers",
+        action="store_true",
+        help=(
+            "Split exact repeated document/phone digit runs in strong PII contexts "
+            "in --run and --run-json modes."
+        ),
+    )
+    parser.add_argument(
         "--ascii",
         action="store_true",
         help="Escape non-ASCII characters in JSON output.",
@@ -68,7 +81,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.run or args.run_json:
-        pipeline = ASRNormalizationPipeline(remove_punctuation=not args.keep_punctuation)
+        pipeline = ASRNormalizationPipeline(
+            remove_punctuation=not args.keep_punctuation,
+            deduplicate_repetitions=args.deduplicate_repetitions,
+            normalize_document_numbers=args.normalize_document_numbers,
+        )
         if args.run_json:
             serialized: str = pipeline.to_json(input_text, ensure_ascii=args.ascii)
             print(serialized)
@@ -82,8 +99,8 @@ def main(argv: list[str] | None = None) -> int:
         replaced: str = extractor.replace(input_text)
         print(replaced)
     else:
-        serialized: str = extractor.to_json(input_text, ensure_ascii=args.ascii)
-        print(serialized)
+        extractor_serialized: str = extractor.to_json(input_text, ensure_ascii=args.ascii)
+        print(extractor_serialized)
     return 0
 
 

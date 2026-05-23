@@ -18,8 +18,14 @@ class NumericPIIPipelineResult:
 def run_numeric_pii_pipeline(
     text: str,
     replacement_by_type: Mapping[NumericPIIType, str] | None = None,
+    deduplicate_repetitions: bool = False,
+    normalize_document_numbers: bool = False,
 ) -> NumericPIIPipelineResult:
-    preprocessing_result: ASRNormalizationResult = run_asr_normalization(text)
+    preprocessing_result: ASRNormalizationResult = run_asr_normalization(
+        text,
+        deduplicate_repetitions=deduplicate_repetitions,
+        normalize_document_numbers=normalize_document_numbers,
+    )
     matches: tuple[NumericPIIMatch, ...] = find_numeric_pii(preprocessing_result.normalized_text)
 
     replacements: Mapping[NumericPIIType, str] = replacement_by_type or {}

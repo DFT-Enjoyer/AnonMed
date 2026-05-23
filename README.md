@@ -74,6 +74,7 @@ src/
         numeric_lexicon.py
         pipeline.py
         punctuation.py
+        repetition.py
         tokenization.py
         types.py
 
@@ -128,7 +129,39 @@ Returned object includes:
 - `punctuation_protected_spans`
 - `integer_spans`
 
-### 2. Run numeric PII on normalized text
+### 2. Deduplicate repeated ASR turns
+
+```python
+from anonmed.preprocessing import ASRUtterance, deduplicate_asr_utterances
+
+result = deduplicate_asr_utterances(
+    [
+        ASRUtterance("адрес семь", start=0.0, end=1.2),
+        ASRUtterance(
+            "адрес семь квартира двенадцать",
+            start=1.4,
+            end=3.0,
+        ),
+    ]
+)
+
+print(result.raw_transcript)
+# адрес семь адрес семь квартира двенадцать
+
+print(result.clean_transcript)
+# адрес семь квартира двенадцать
+```
+
+The repeat deduplication layer is intentionally conservative:
+
+- it keeps a raw transcript and produces a separate clean transcript
+- it compares only local candidate turns by time and turn distance
+- it works without speaker labels, but can use optional `speaker`, `start`, `end`, and
+  `confidence` fields when they are available
+- it protects likely semantic changes such as numeric changes or negation flips unless the
+  newer turn contains an explicit repair cue
+
+### 3. Run numeric PII on normalized text
 
 ```python
 from anonmed.anonymization import find_numeric_pii, mask_numeric_pii
@@ -149,7 +182,7 @@ print(mask_numeric_pii(result.normalized_text))
 # телефон [PHONE]
 ```
 
-### 3. Run the full end-to-end pipeline
+### 4. Run the full end-to-end pipeline
 
 ```python
 from anonmed.anonymization import run_numeric_pii_pipeline

@@ -16,6 +16,25 @@ class NumericPIICompositionTests(unittest.TestCase):
         self.assertEqual(pipeline_result.matches[0].normalized_value, "+79131234567")
         self.assertEqual(pipeline_result.masked_text, "телефон [PHONE]")
 
+    def test_numeric_pii_pipeline_can_deduplicate_repeated_lines_before_matching(self) -> None:
+        pipeline_result = run_numeric_pii_pipeline(
+            (
+                "телефон восемь девять один три один два три четыре пять шесть семь\n"
+                "телефон восемь девять один три один два три четыре пять шесть семь"
+            ),
+            deduplicate_repetitions=True,
+        )
+
+        self.assertEqual(
+            pipeline_result.preprocessing_result.normalized_text,
+            "телефон 89131234567",
+        )
+        self.assertEqual(
+            pipeline_result.preprocessing_result.repetition_suppressed_indexes,
+            (1,),
+        )
+        self.assertEqual(len(pipeline_result.matches), 1)
+
     def test_numeric_pii_pipeline_runs_end_to_end_for_mse(self) -> None:
         pipeline_result = run_numeric_pii_pipeline(
             "справка мсэ номер ноль восемь семь четыре два три дробь две тысячи двадцать один"
