@@ -7,7 +7,7 @@ import unittest
 
 from anonmed.ml.config import pipeline_config_from_mapping
 from anonmed.ml.factory import evaluate
-from anonmed.ml.datasets.example import build_example_dataset
+from anonmed.ml.data.example import build_example_dataset
 from anonmed.ml.metrics.example import ExampleCountMetric
 from anonmed.ml.models.example import ExamplePIIModel
 from anonmed.ml.registry import RegistryError, build_dataset

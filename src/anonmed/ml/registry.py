@@ -4,12 +4,19 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from anonmed.ml.config import DatasetConfig, MetricConfig, ModelConfig, PipelineConfig
-from anonmed.ml.datasets.base import Dataset
-from anonmed.ml.datasets.example import build_example_dataset
+
+from anonmed.ml.data.base import Dataset
+from anonmed.ml.data.example import build_example_dataset
+from anonmed.ml.data.russian_pii_66k import RussianPIIDataset
+
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.metrics.example import ExampleCountMetric
+from anonmed.ml.metrics.entity_hard import EntityHardF1Metric
+from anonmed.ml.metrics.char_hard import CharHardF1Metric
+
 from anonmed.ml.models.base import PIIModel
 from anonmed.ml.models.example import ExamplePIIModel
+from anonmed.ml.models.natasha_per import NatashaPERModel
 
 
 DatasetBuilder = Callable[[DatasetConfig], Dataset]
@@ -47,17 +54,39 @@ def _build_example_count_metric(config: MetricConfig) -> Metric:
     _reject_params(config.id, config.params)
     return ExampleCountMetric()
 
+def _build_russian_pii_dataset(config: DatasetConfig) -> Dataset:
+    params = config.params
+    sample_size = params.get("sample_size", 2000)
+    random_seed = params.get("random_seed", 42)
+    return RussianPIIDataset(sample_size=sample_size, random_seed=random_seed)
 
-DATASET_BUILDERS: dict[str, DatasetBuilder] = {
+def _build_natasha_per_model(config: ModelConfig) -> PIIModel:
+    _reject_params(config.id, config.params)
+    return NatashaPERModel()
+
+def _build_entity_hard_f1(config: MetricConfig) -> Metric:
+    _reject_params(config.id, config.params)
+    return EntityHardF1Metric()
+
+def _build_char_hard_f1(config: MetricConfig) -> Metric:
+    _reject_params(config.id, config.params)
+    return CharHardF1Metric()
+
+
+DATASET_BUILDERS = {
     "example": _build_example_dataset,
+    "russian_pii_66k": _build_russian_pii_dataset,
 }
 
-MODEL_BUILDERS: dict[str, ModelBuilder] = {
+MODEL_BUILDERS = {
     "example": _build_example_model,
+    "natasha_per": _build_natasha_per_model,
 }
 
-METRIC_BUILDERS: dict[str, MetricBuilder] = {
+METRIC_BUILDERS = {
     "example_count": _build_example_count_metric,
+    "entity_hard_f1": _build_entity_hard_f1,
+    "char_hard_f1": _build_char_hard_f1,
 }
 
 

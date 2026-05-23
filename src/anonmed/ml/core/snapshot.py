@@ -5,7 +5,7 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.core.types import AnnotationSetLine, Case, Span, TextLine
 
 

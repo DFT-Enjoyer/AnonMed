@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.core.types import AnnotationSet
 
 

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from anonmed.ml.core.snapshot import DatasetSnapshotWriter
 from anonmed.ml.core.types import EvaluationReport
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.evaluation.evaluator import Evaluator
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.models.base import PIIModel

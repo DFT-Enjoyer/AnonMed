@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.models.base import PIIModel
 from anonmed.ml.core.types import AnnotationSet, EvaluationReport, MetricResult

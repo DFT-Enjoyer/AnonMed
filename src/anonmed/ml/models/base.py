@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from anonmed.ml.core.types import AnnotationSet, TextDocument
 
 if TYPE_CHECKING:
-    from anonmed.ml.datasets.base import Dataset
+    from anonmed.ml.data.base import Dataset
 
 
 class PIIModel(ABC):
