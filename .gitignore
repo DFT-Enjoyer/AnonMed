@@ -9,3 +9,149 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 *.egg-info/
+
+# Bytecode и кэш Python
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+.Python
+*.pyc
+
+# Виртуальные окружения
+venv/
+env/
+.env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Файлы дистрибуции / сборки
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Логи и отчёты
+*.log
+*.pid
+*.seed
+*.pid.lock
+*.json.report
+*.html.report
+coverage/
+.coverage
+.coverage.*
+.htmlcov/
+.tox/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb
+*.ipynb_checkpoints
+
+# Файлы данных (если не хотите коммитить дампы датасетов)
+*.parquet
+*.feather
+*.arrow
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.pickle
+*.pkl
+*.joblib
+data/*.json
+data/*.csv
+artifacts/
+snapshots/
+dataset_snapshot.*
+*.db
+*.sqlite
+*.sqlite3
+
+# Конфиги с секретами / локальные настройки
+*.local.yaml
+*.secret.yaml
+configs/local.yaml
+.env
+.env.*
+!.env.example
+
+# Файлы IDE и редакторов
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-*
+.project
+.pydevproject
+.settings/
+*.sublime-workspace
+
+# Файлы виртуальных окружений (дополнительно)
+pip-log.txt
+pip-delete-this-directory.txt
+pip-wheel-metadata/
+site-packages/
+lib64/python3.*/site-packages/
+
+# Файлы сборки документации
+docs/_build/
+docs/api/
+
+# Файлы профилирования
+*.prof
+*.lprof
+
+# Файлы проектов ML (например, датасеты Hugging Face)
+.cache/huggingface/
+.huggingface/
+datasets_cache/
+
+# Файлы логов и временные файлы
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Файлы метрик / отчётов (если не хотите их коммитить)
+reports/
+*.report.json
+*.metrics.json
+*.eval.json
+
+# Файлы, создаваемые в процессе обучения моделей
+checkpoints/
+*.pt
+*.pth
+*.bin
+*.h5
+*.model
+*.onnx
+
+# Файлы, которые могут содержать персональные данные или конфиденциальную информацию
+*.secret
+*.key
+*.pem
+*.crt

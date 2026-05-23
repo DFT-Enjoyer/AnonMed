@@ -1,5 +1,5 @@
 from anonmed.ml.core.types import AnnotationSet
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.metrics.utils import accuracy_without_tn, aggregate_counts, f1, precision, recall
 

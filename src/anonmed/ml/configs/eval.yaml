@@ -1,0 +1,27 @@
+run:
+  name: "test_eval"
+
+dataset:
+  id: "russian_pii_66k"
+  params:
+    sample_size: 2000
+    random_seed: 42
+
+model:
+  id: "natasha_per"
+
+metrics:
+  - id: "entity_hard_f1"
+  - id: "char_hard_f1"
+
+training:
+  enabled: false
+
+evaluation:
+  enabled: true
+
+outputs:
+  artifacts_dir: "artifacts"
+  report_filename: "report.json"
+  write_dataset_snapshot_json: true
+  write_dataset_snapshot_parquet: false
