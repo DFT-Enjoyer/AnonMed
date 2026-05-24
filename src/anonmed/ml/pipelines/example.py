@@ -23,7 +23,7 @@ def main():
     print(f"Model: {config.model.id}")
     print(f"Metrics: {[m.name for m in components.metrics]}")
 
-    report = evaluate(components.dataset, components.model, components.metrics)
+    report = evaluate(components.dataset, components.model, components.metrics, show_progress=True)
 
     output_dir = build_run_instance_dir(config)
     output_dir.mkdir(parents=True, exist_ok=True)
