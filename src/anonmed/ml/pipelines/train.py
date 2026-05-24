@@ -42,7 +42,7 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
 
     report: EvaluationReport | None = None
     if config.evaluation.enabled:
-        report = evaluate(components.dataset, model, components.metrics)
+        report = evaluate(components.dataset, model, components.metrics, show_progress=True)
 
     instance_dir = build_run_instance_dir(config)
     instance_dir.mkdir(parents=True, exist_ok=True)

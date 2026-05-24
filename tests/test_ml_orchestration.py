@@ -8,9 +8,11 @@ import sys
 import unittest
 
 from anonmed.ml.config import pipeline_config_from_mapping
+from anonmed.ml.core.types import Role, TextDocument, TextLine
 from anonmed.ml.factory import evaluate
 from anonmed.ml.data.example import build_example_dataset
 from anonmed.ml.metrics.example import ExampleCountMetric
+from anonmed.ml.models.GLiNER2 import DEFAULT_ENTITY_DESCRIPTION, GLiNER2Model
 from anonmed.ml.models.example import ExamplePIIModel
 from anonmed.ml.outputs import build_run_instance_dir
 from anonmed.ml.registry import RegistryError, build_dataset
@@ -26,10 +28,12 @@ class MLOrchestrationTests(unittest.TestCase):
                 "-c",
                 (
                     "from anonmed.ml import "
-                    "AnnotationSet, Dataset, Metric, PIIModel, TextDocument, evaluate; "
+                    "AnnotationSet, Dataset, GLiNER2Model, Metric, PIIModel, "
+                    "TextDocument, evaluate; "
                     "from anonmed.ml.core import Case, DatasetSnapshotWriter, Span; "
                     "import anonmed.ml.registry; "
                     "import anonmed.ml.data.russian_pii_66k; "
+                    "import anonmed.ml.models.GLiNER2; "
                     "import anonmed.ml.models.natasha_per"
                 ),
             ],
@@ -54,6 +58,73 @@ class MLOrchestrationTests(unittest.TestCase):
             report.metrics["example_count"],
             {"predictions_count": 1, "cases_count": 1},
         )
+
+    def test_gliner2_model_maps_person_spans_to_per_annotations(self) -> None:
+        class FakeSchemaBuilder:
+            def __init__(self, extractor: "FakeGLiNER2Extractor") -> None:
+                self.extractor = extractor
+
+            def entities(self, schema: dict[str, object]) -> dict[str, object]:
+                self.extractor.schema = schema
+                return schema
+
+        class FakeGLiNER2Extractor:
+            def create_schema(self) -> FakeSchemaBuilder:
+                return FakeSchemaBuilder(self)
+
+            def extract(
+                self,
+                text: str,
+                schema: dict[str, object],
+                **kwargs: object,
+            ) -> dict[str, object]:
+                self.text = text
+                self.extract_schema = schema
+                self.kwargs = kwargs
+                entity_text = "Иванов Иван Иванович"
+                begin = text.index(entity_text)
+                return {
+                    "entities": {
+                        "person": [
+                            {
+                                "text": entity_text,
+                                "start": begin,
+                                "end": begin + len(entity_text),
+                            }
+                        ]
+                    }
+                }
+
+        extractor = FakeGLiNER2Extractor()
+        model = GLiNER2Model(extractor=extractor)
+        role = Role(name="text")
+        text = "Пациент Иванов Иван Иванович пришел на прием."
+        document = TextDocument(
+            lines=(TextLine(idx=0, role=role, text=text),),
+            sample_id="sample-1",
+        )
+
+        prediction = model.predict(document)
+
+        self.assertEqual(
+            extractor.schema,
+            {
+                "person": {
+                    "description": DEFAULT_ENTITY_DESCRIPTION,
+                    "dtype": "list",
+                    "threshold": 0.5,
+                }
+            },
+        )
+        self.assertIs(extractor.extract_schema, extractor.schema)
+        self.assertEqual(extractor.kwargs, {"include_spans": True, "threshold": 0.5})
+        self.assertEqual(prediction.idx, "sample-1")
+        self.assertEqual(len(prediction.lines), 1)
+        self.assertEqual(len(prediction.lines[0].spans), 1)
+        span = prediction.lines[0].spans[0]
+        self.assertEqual(span.label, "PER")
+        self.assertEqual(span.data, "Иванов Иван Иванович")
+        self.assertEqual(text[span.begin:span.end], "Иванов Иван Иванович")
 
     def test_unknown_dataset_id_is_rejected(self) -> None:
         config = pipeline_config_from_mapping(

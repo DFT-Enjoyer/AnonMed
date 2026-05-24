@@ -10,8 +10,13 @@ from anonmed.ml.data.example import build_example_dataset
 
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.metrics.example import ExampleCountMetric
-from anonmed.ml.metrics.entity_hard import EntityHardF1Metric
+from anonmed.ml.metrics.entity_hard import (
+    EntityHardF1Metric,
+    EntityHardPrecisionMetric,
+    EntityHardRecallMetric,
+)
 from anonmed.ml.metrics.char_hard import CharHardF1Metric
+from anonmed.ml.metrics.coverage import CoveragePercentMetric
 
 from anonmed.ml.models.base import PIIModel
 from anonmed.ml.models.example import ExamplePIIModel
@@ -52,6 +57,7 @@ def _build_example_count_metric(config: MetricConfig) -> Metric:
     _reject_params(config.id, config.params)
     return ExampleCountMetric()
 
+
 def _build_russian_pii_dataset(config: DatasetConfig) -> Dataset:
     from anonmed.ml.data.russian_pii_66k import RussianPIIDataset
 
@@ -60,19 +66,42 @@ def _build_russian_pii_dataset(config: DatasetConfig) -> Dataset:
     random_seed = params.get("random_seed", 42)
     return RussianPIIDataset(sample_size=sample_size, random_seed=random_seed)
 
+
 def _build_natasha_per_model(config: ModelConfig) -> PIIModel:
     from anonmed.ml.models.natasha_per import NatashaPERModel
 
     _reject_params(config.id, config.params)
     return NatashaPERModel()
 
+
+def _build_gliner2_model(config: ModelConfig) -> PIIModel:
+    from anonmed.ml.models.GLiNER2 import GLiNER2Model
+
+    return GLiNER2Model(**dict(config.params))
+
+
+def _build_entity_hard_precision(config: MetricConfig) -> Metric:
+    _reject_params(config.id, config.params)
+    return EntityHardPrecisionMetric()
+
+
+def _build_entity_hard_recall(config: MetricConfig) -> Metric:
+    _reject_params(config.id, config.params)
+    return EntityHardRecallMetric()
+
+
 def _build_entity_hard_f1(config: MetricConfig) -> Metric:
     _reject_params(config.id, config.params)
     return EntityHardF1Metric()
 
+
 def _build_char_hard_f1(config: MetricConfig) -> Metric:
     _reject_params(config.id, config.params)
     return CharHardF1Metric()
+
+def _build_coverage_percent(config: MetricConfig) -> Metric:
+    _reject_params(config.id, config.params)
+    return CoveragePercentMetric()
 
 
 DATASET_BUILDERS = {
@@ -83,12 +112,16 @@ DATASET_BUILDERS = {
 MODEL_BUILDERS = {
     "example": _build_example_model,
     "natasha_per": _build_natasha_per_model,
+    "GLiNER2": _build_gliner2_model,
 }
 
 METRIC_BUILDERS = {
     "example_count": _build_example_count_metric,
+    "entity_hard_precision": _build_entity_hard_precision,
+    "entity_hard_recall": _build_entity_hard_recall,
     "entity_hard_f1": _build_entity_hard_f1,
     "char_hard_f1": _build_char_hard_f1,
+    "coverage_percent": _build_coverage_percent,
 }
 
 
