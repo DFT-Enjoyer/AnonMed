@@ -1,60 +1,70 @@
+from __future__ import annotations
+
 from anonmed.ml.core.types import AnnotationSet
 from anonmed.ml.data.base import Dataset
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.metrics.utils import accuracy_without_tn, aggregate_counts, f1, precision, recall
 
 
-class CharSoftPrecisionMetric(Metric):
+class EntityHardPrecisionMetric(Metric):
     @property
     def name(self) -> str:
-        return "char_soft_precision"
+        return "entity_hard_precision"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
         self._validate_inputs(dataset, predictions)
-        counts = aggregate_counts(dataset.cases, predictions, mode="char_soft")
+        counts = aggregate_counts(dataset.cases, predictions, mode="entity_hard")
         return {"value": precision(counts), "tp": counts.tp, "fp": counts.fp, "fn": counts.fn}
 
 
-class CharSoftRecallMetric(Metric):
+class EntityHardRecallMetric(Metric):
     @property
     def name(self) -> str:
-        return "char_soft_recall"
+        return "entity_hard_recall"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
         self._validate_inputs(dataset, predictions)
-        counts = aggregate_counts(dataset.cases, predictions, mode="char_soft")
+        counts = aggregate_counts(dataset.cases, predictions, mode="entity_hard")
         return {"value": recall(counts), "tp": counts.tp, "fp": counts.fp, "fn": counts.fn}
 
 
-class CharSoftF1Metric(Metric):
+class EntityHardF1Metric(Metric):
     @property
     def name(self) -> str:
-        return "char_soft_f1"
+        return "entity_hard_f1"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
         self._validate_inputs(dataset, predictions)
-        counts = aggregate_counts(dataset.cases, predictions, mode="char_soft")
+        counts = aggregate_counts(dataset.cases, predictions, mode="entity_hard")
         return {"value": f1(counts), "tp": counts.tp, "fp": counts.fp, "fn": counts.fn}
 
 
-class CharSoftAccuracyMetric(Metric):
+class EntityHardAccuracyMetric(Metric):
     @property
     def name(self) -> str:
-        return "char_soft_accuracy"
+        return "entity_hard_accuracy"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
         self._validate_inputs(dataset, predictions)
-        counts = aggregate_counts(dataset.cases, predictions, mode="char_soft")
+        counts = aggregate_counts(dataset.cases, predictions, mode="entity_hard")
         return {"value": accuracy_without_tn(counts), "tp": counts.tp, "fp": counts.fp, "fn": counts.fn}
+
+
+__all__: list[str] = [
+    "EntityHardAccuracyMetric",
+    "EntityHardF1Metric",
+    "EntityHardPrecisionMetric",
+    "EntityHardRecallMetric",
+]

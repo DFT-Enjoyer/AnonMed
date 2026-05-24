@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from anonmed.ml.core.types import AnnotationSet
 from anonmed.ml.data.base import Dataset
 from anonmed.ml.metrics.base import Metric
@@ -9,7 +11,7 @@ class CharHardPrecisionMetric(Metric):
     def name(self) -> str:
         return "char_hard_precision"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
@@ -23,7 +25,7 @@ class CharHardRecallMetric(Metric):
     def name(self) -> str:
         return "char_hard_recall"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
@@ -37,7 +39,7 @@ class CharHardF1Metric(Metric):
     def name(self) -> str:
         return "char_hard_f1"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
@@ -51,10 +53,18 @@ class CharHardAccuracyMetric(Metric):
     def name(self) -> str:
         return "char_hard_accuracy"
 
-    def reset(self):
+    def reset(self) -> None:
         return None
 
     def compute(self, dataset: Dataset, predictions: tuple[AnnotationSet, ...]) -> dict[str, float | int]:
         self._validate_inputs(dataset, predictions)
         counts = aggregate_counts(dataset.cases, predictions, mode="char_hard")
         return {"value": accuracy_without_tn(counts), "tp": counts.tp, "fp": counts.fp, "fn": counts.fn}
+
+
+__all__: list[str] = [
+    "CharHardAccuracyMetric",
+    "CharHardF1Metric",
+    "CharHardPrecisionMetric",
+    "CharHardRecallMetric",
+]
