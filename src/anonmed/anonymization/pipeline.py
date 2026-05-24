@@ -94,7 +94,7 @@ def run_numeric_pii_pipeline(
         normalized_matches=normalized_matches,
         masked_normalized_text=post_processing_result.masked_normalized_text,
         masked_original_text=post_processing_result.masked_original_text,
-        restored_safe_text=post_processing_result.masked_original_text,
+        restored_safe_text=post_processing_result.restored_safe_text,
         post_processing_result=post_processing_result,
     )
 
@@ -153,3 +153,4 @@ __all__: list[str] = [
     "NumericPIIPipelineResult",
     "run_numeric_pii_pipeline",
 ]
+

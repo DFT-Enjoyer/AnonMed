@@ -7,8 +7,8 @@ from typing import Any, Sequence
 
 from anonmed.ml.config import PipelineConfig, load_pipeline_config
 from anonmed.ml.core.snapshot import DatasetSnapshotWriter
-from anonmed.ml.core.types import EvaluationReport
-from anonmed.ml.factory import evaluate
+from anonmed.ml.evaluation import EvaluationResult
+from anonmed.ml.factory import evaluate_with_predictions
 from anonmed.ml.models.base import PIIModel, TrainablePIIModel
 from anonmed.ml.outputs import build_run_instance_dir
 from anonmed.ml.registry import PipelineComponents, build_pipeline_components
@@ -40,9 +40,14 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
         if isinstance(fit_result, PIIModel):
             model = fit_result
 
-    report: EvaluationReport | None = None
+    evaluation_result: EvaluationResult | None = None
     if config.evaluation.enabled:
-        report = evaluate(components.dataset, model, components.metrics, show_progress=True)
+        evaluation_result = evaluate_with_predictions(
+            components.dataset,
+            model,
+            components.metrics,
+            show_progress=True,
+        )
 
     instance_dir = build_run_instance_dir(config)
     instance_dir.mkdir(parents=True, exist_ok=True)
@@ -54,8 +59,8 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
         "metrics": [asdict(metric) for metric in config.metrics],
         "training": asdict(config.training),
         "evaluation": asdict(config.evaluation),
-        "samples_count": 0 if report is None else report.samples_count,
-        "metric_results": {} if report is None else report.metrics,
+        "samples_count": 0 if evaluation_result is None else evaluation_result.report.samples_count,
+        "metric_results": {} if evaluation_result is None else evaluation_result.report.metrics,
     }
 
     report_path = instance_dir / config.outputs.report_filename
@@ -71,6 +76,14 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
         snapshot_path = instance_dir / "dataset_snapshot.parquet"
         snapshot_writer.write_parquet(components.dataset, snapshot_path)
         payload["instance"]["dataset_snapshot_parquet"] = str(snapshot_path)
+    if evaluation_result is not None:
+        snapshot_path = instance_dir / "evaluation_snapshot.json"
+        snapshot_writer.write_evaluation_json(
+            components.dataset,
+            evaluation_result.predictions,
+            snapshot_path,
+        )
+        payload["instance"]["evaluation_snapshot_json"] = str(snapshot_path)
 
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
