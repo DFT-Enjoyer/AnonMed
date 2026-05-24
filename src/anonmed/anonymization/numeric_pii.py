@@ -23,6 +23,7 @@ __all__: tuple[str, ...] = (
     "NumericPIIMatch",
     "NumericPIIRule",
     "build_default_numeric_rules",
+    "collect_numeric_pii_candidates",
     "find_numeric_pii",
     "mask_numeric_pii",
     "normalize_numeric_pii_value",
@@ -685,6 +686,26 @@ def find_numeric_pii(
     text: str,
     rules: Sequence[NumericPIIRule] | None = None,
 ) -> tuple[NumericPIIMatch, ...]:
+    raw_candidates: tuple[NumericPIIMatch, ...] = collect_numeric_pii_candidates(text, rules=rules)
+    candidates_with_priorities: list[tuple[NumericPIIMatch, int]] = [
+        (candidate, _priority_from_match(candidate)) for candidate in raw_candidates
+    ]
+    return _resolve_overlaps(candidates_with_priorities)
+
+
+def _priority_from_match(match: NumericPIIMatch) -> int:
+    priority_value: object | None = match.metadata.get("priority")
+    if isinstance(priority_value, int):
+        return priority_value
+    if isinstance(priority_value, str) and priority_value.isdigit():
+        return int(priority_value)
+    return 50
+
+
+def collect_numeric_pii_candidates(
+    text: str,
+    rules: Sequence[NumericPIIRule] | None = None,
+) -> tuple[NumericPIIMatch, ...]:
     active_rules: Sequence[NumericPIIRule] = _DEFAULT_NUMERIC_RULES if rules is None else rules
     candidates: list[tuple[NumericPIIMatch, int]] = []
     for rule in active_rules:
@@ -696,7 +717,8 @@ def find_numeric_pii(
             )
             if candidate is not None:
                 candidates.append(candidate)
-    return _resolve_overlaps(candidates)
+    raw_candidates: list[NumericPIIMatch] = [candidate for candidate, _priority in candidates]
+    return tuple(sorted(raw_candidates, key=lambda item: (item.start, item.end, item.pii_type)))
 
 
 def _mask_matches(
