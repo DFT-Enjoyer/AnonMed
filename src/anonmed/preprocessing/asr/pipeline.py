@@ -85,6 +85,7 @@ class ASRNormalizationPipeline:
         contact_config: ContactNormalizerConfig | None = None,
         remove_disfluencies: bool = True,
         remove_punctuation: bool = True,
+        normalize_numbers: bool = True,
         deduplicate_repetitions: bool = False,
         normalize_document_numbers: bool = False,
         normalize_date_birth: bool = True,
@@ -92,6 +93,7 @@ class ASRNormalizationPipeline:
     ) -> None:
         self.remove_disfluencies: bool = remove_disfluencies
         self.remove_punctuation: bool = remove_punctuation
+        self.normalize_numbers: bool = normalize_numbers
         self.deduplicate_repetitions: bool = deduplicate_repetitions
         self.normalize_document_numbers: bool = normalize_document_numbers
         self.normalize_date_birth: bool = normalize_date_birth
@@ -154,7 +156,9 @@ class ASRNormalizationPipeline:
         )
 
         cleaned_text: str = repetition_cleaned_text
-        integer_spans: list[IntegerSpan] = self.integer_extractor.extract(cleaned_text)
+        integer_spans: list[IntegerSpan] = (
+            self.integer_extractor.extract(cleaned_text) if self.normalize_numbers else []
+        )
         cleaned_to_numeric_alignment: TextAlignment = build_replacement_alignment(
             cleaned_text,
             integer_spans,
@@ -287,6 +291,7 @@ def run_asr_normalization(
     contact_config: ContactNormalizerConfig | None = None,
     remove_disfluencies: bool = True,
     remove_punctuation: bool = True,
+    normalize_numbers: bool = True,
     deduplicate_repetitions: bool = False,
     normalize_document_numbers: bool = False,
     normalize_date_birth: bool = True,
@@ -302,6 +307,7 @@ def run_asr_normalization(
         contact_config=contact_config,
         remove_disfluencies=remove_disfluencies,
         remove_punctuation=remove_punctuation,
+        normalize_numbers=normalize_numbers,
         deduplicate_repetitions=deduplicate_repetitions,
         normalize_document_numbers=normalize_document_numbers,
         normalize_date_birth=normalize_date_birth,
