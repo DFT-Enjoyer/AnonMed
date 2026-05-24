@@ -35,6 +35,29 @@ class NumericPIIRulesTests(unittest.TestCase):
     def test_phone_with_plus_symbol(self) -> None:
         self.assert_single_match("номер телефона +7 913 123 45 67", "PHONE", "+79131234567")
 
+    def test_contextual_city_phone_with_country_code(self) -> None:
+        self.assert_single_match(
+            "контактный телефон +7 495 123 45 67",
+            "PHONE",
+            "+74951234567",
+        )
+
+    def test_contextual_city_phone_with_trunk_code(self) -> None:
+        self.assert_single_match(
+            "городской 8 (495) 123-45-67",
+            "PHONE",
+            "+74951234567",
+        )
+
+    def test_contextual_ten_digit_city_phone(self) -> None:
+        self.assert_single_match("тел. 495 123 45 67", "PHONE", "+74951234567")
+
+    def test_phone_context_can_follow_number(self) -> None:
+        self.assert_single_match("495 123 45 67 контактный", "PHONE", "+74951234567")
+
+    def test_messenger_context_matches_phone(self) -> None:
+        self.assert_single_match("ватсап +7 (999) 123-45-67", "PHONE", "+79991234567")
+
     def test_landline_phone_with_context(self) -> None:
         self.assert_single_match("домашний телефон 123 456", "PHONE", "123456")
 
@@ -42,8 +65,16 @@ class NumericPIIRulesTests(unittest.TestCase):
         matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("анализ 123 456")
         self.assertEqual(matches, ())
 
+    def test_city_phone_without_context_is_rejected(self) -> None:
+        matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("анализ 495 123 45 67")
+        self.assertEqual(matches, ())
+
     def test_phone_is_rejected_in_policy_context(self) -> None:
         matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("полис 89131234567")
+        self.assertEqual(matches, ())
+
+    def test_city_phone_is_rejected_in_policy_context(self) -> None:
+        matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("полис 8 495 123 45 67")
         self.assertEqual(matches, ())
 
     def test_snils_with_context(self) -> None:

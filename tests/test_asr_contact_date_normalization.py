@@ -87,6 +87,28 @@ class ASRContactDateNormalizationTests(unittest.TestCase):
         self.assertEqual(len(result.contact_spans), 1)
         self.assertEqual(result.contact_spans[0].kind, "telegram")
 
+    def test_spoken_phone_plus_seven_is_normalized_to_plus_prefix(self) -> None:
+        result = run_asr_normalization(
+            "телефон плюс семь девять один три один два три четыре пять шесть семь"
+        )
+
+        self.assertEqual(result.numeric_normalized_text, "телефон +79131234567")
+        self.assertEqual(result.normalized_text, "телефон +79131234567")
+
+    def test_spoken_phone_without_plus_keeps_semantic_mobile_prefix(self) -> None:
+        result = run_numeric_pii_pipeline(
+            "номер телефона семь девять один три один два три четыре пять шесть семь"
+        )
+
+        self.assertEqual(
+            result.preprocessing_result.normalized_text,
+            "номер телефона 79131234567",
+        )
+        self.assertEqual(
+            [(match.pii_type, match.normalized_value) for match in result.matches],
+            [("PHONE", "+79131234567")],
+        )
+
     def test_standalone_normalizers_return_audit_spans(self) -> None:
         date_normalizer = DateBirthNormalizer()
         contact_normalizer = ContactNormalizer()

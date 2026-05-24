@@ -33,7 +33,11 @@ from anonmed.preprocessing.asr.disfluency import (
     DisfluencyFilterConfig,
     RemovedSpan,
 )
-from anonmed.preprocessing.asr.number_extractor import IntegerExtractor
+from anonmed.preprocessing.asr.number_extractor import (
+    IntegerExtractor,
+    SpokenPhonePlusSpan,
+    find_spoken_phone_plus_spans,
+)
 from anonmed.preprocessing.asr.punctuation import (
     ProtectedPunctuationSpan,
     PunctuationCleanedText,
@@ -163,10 +167,22 @@ class ASRNormalizationPipeline:
             cleaned_text,
             integer_spans,
         )
-        numeric_normalized_text: str = cleaned_to_numeric_alignment.target_text
+        numeric_text_with_spoken_plus: str = cleaned_to_numeric_alignment.target_text
+        phone_plus_spans: list[SpokenPhonePlusSpan] = find_spoken_phone_plus_spans(
+            numeric_text_with_spoken_plus
+        )
+        spoken_plus_to_numeric_alignment: TextAlignment = build_replacement_alignment(
+            numeric_text_with_spoken_plus,
+            phone_plus_spans,
+        )
+        numeric_normalized_text: str = spoken_plus_to_numeric_alignment.target_text
+        cleaned_to_numeric_with_plus_alignment: TextAlignment = compose_alignments(
+            cleaned_to_numeric_alignment,
+            spoken_plus_to_numeric_alignment,
+        )
         original_to_numeric_alignment: TextAlignment = compose_alignments(
             original_to_repetition_alignment,
-            cleaned_to_numeric_alignment,
+            cleaned_to_numeric_with_plus_alignment,
         )
 
         document_number_normalized: DocumentNumberNormalizedText

@@ -233,7 +233,11 @@ def _normalize_phone(raw_value: str) -> str | None:
         return digits
     if len(digits) == 10 and digits.startswith("9"):
         return "+7" + digits
+    if len(digits) == 10 and digits[0] in {"3", "4", "8"}:
+        return "+7" + digits
     if len(digits) == 11 and digits[0] in {"7", "8"} and digits[1] == "9":
+        return "+7" + digits[1:]
+    if len(digits) == 11 and digits[0] in {"7", "8"} and digits[1] in {"3", "4", "8"}:
         return "+7" + digits[1:]
     return None
 
@@ -414,6 +418,14 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
         rf"(?:(?:7|8){_SEPARATOR_PATTERN})?"
         rf"9{_SEPARATOR_PATTERN}(?:\d{_SEPARATOR_PATTERN}){{9}}"
     )
+    phone_country_code_value_pattern: str = (
+        rf"(?:\+{_SEPARATOR_PATTERN})?"
+        rf"(?:7|8){_SEPARATOR_PATTERN}"
+        rf"[3489]{_SEPARATOR_PATTERN}(?:\d{_SEPARATOR_PATTERN}){{9}}"
+    )
+    phone_ten_digit_context_value_pattern: str = (
+        rf"[3489]{_SEPARATOR_PATTERN}(?:\d{_SEPARATOR_PATTERN}){{9}}"
+    )
     phone_landline_value_pattern: str = rf"[1-9]{_SEPARATOR_PATTERN}(?:\d{_SEPARATOR_PATTERN}){{5}}"
     passport_value_pattern: str = (
         rf"{_digit_count_pattern(4)}(?:номер{_WORD_SEPARATOR_PATTERN})?{_digit_count_pattern(6)}"
@@ -430,6 +442,16 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
         rf"{_digit_count_pattern(4)}"
         rf"(?:(?:номер|номер\s+акта|акт){_WORD_SEPARATOR_PATTERN})?"
         rf"{_digit_count_pattern(7)}"
+    )
+
+    phone_positive_context: tuple[Pattern[str], ...] = _compile_many(
+        (
+            r"\b(?:телефон\w*|тел\.?|мобильн\w*|моб\.?|сотов\w*|сот\.?|домашн\w*|городск\w*)\b",
+            r"\b(?:контактн\w*|контакт\w*|номер\s+(?:телефон\w*|мобильн\w*|сотов\w*))\b",
+            r"\b(?:позвон\w*|перезвон\w*|дозвон\w*|набер\w*|набрать|звон(?:ок|ить|ите)?)\b",
+            r"\b(?:для\s+связи|связаться|связ[ьи])\b",
+            r"\b(?:whatsapp|ватсап|вацап|вотсап|telegram|телеграм\w*)\b",
+        )
     )
 
     return (
@@ -541,12 +563,7 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
             pii_type="PHONE",
             rule_id="russian_mobile_phone",
             pattern=_compile(_bounded_value_pattern(phone_value_pattern)),
-            positive_context=_compile_many(
-                (
-                    r"\b(?:телефон\w*|мобильн\w*|сотов\w*|домашн\w*|номер\s+телефон\w*)\b",
-                    r"\b(?:позвон\w*|перезвон\w*|для\s+связи)\b",
-                )
-            ),
+            positive_context=phone_positive_context,
             negative_context=phone_negative_context,
             require_context=False,
             context_window=68,
@@ -556,18 +573,37 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
         ),
         NumericPIIRule(
             pii_type="PHONE",
+            rule_id="russian_phone_with_country_or_trunk_code_context",
+            pattern=_compile(_bounded_value_pattern(phone_country_code_value_pattern)),
+            positive_context=phone_positive_context,
+            negative_context=phone_negative_context,
+            require_context=True,
+            context_window=80,
+            context_after_window=32,
+            priority=73,
+            base_confidence=0.78,
+        ),
+        NumericPIIRule(
+            pii_type="PHONE",
+            rule_id="russian_ten_digit_phone_with_context",
+            pattern=_compile(_bounded_value_pattern(phone_ten_digit_context_value_pattern)),
+            positive_context=phone_positive_context,
+            negative_context=phone_negative_context,
+            require_context=True,
+            context_window=80,
+            context_after_window=32,
+            priority=70,
+            base_confidence=0.73,
+        ),
+        NumericPIIRule(
+            pii_type="PHONE",
             rule_id="russian_landline_phone_with_context",
             pattern=_compile(_bounded_value_pattern(phone_landline_value_pattern)),
-            positive_context=_compile_many(
-                (
-                    r"\b(?:телефон\w*|домашн\w*|городск\w*|номер\s+телефон\w*)\b",
-                    r"\b(?:позвон\w*|перезвон\w*|для\s+связи)\b",
-                )
-            ),
+            positive_context=phone_positive_context,
             negative_context=phone_negative_context,
             require_context=True,
             context_window=56,
-            context_after_window=0,
+            context_after_window=24,
             priority=71,
             base_confidence=0.71,
         ),

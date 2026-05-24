@@ -130,6 +130,29 @@ def _build_qwen06b_model(config: ModelConfig) -> PIIModel:
             f"Invalid params for model {config.id!r}: {dict(config.params)!r}"
         ) from error
 
+
+def _build_pidr_model(config: ModelConfig) -> PIIModel:
+    from anonmed.ml.models.PIDR import PIDRModel
+
+    try:
+        return PIDRModel(**dict(config.params))
+    except TypeError as error:
+        raise RegistryError(
+            f"Invalid params for model {config.id!r}: {dict(config.params)!r}"
+        ) from error
+
+
+def _build_fine_tuned_pidr_model(config: ModelConfig) -> PIIModel:
+    from anonmed.ml.models.PIDR import FineTunedPIDRModel
+
+    try:
+        return FineTunedPIDRModel(**dict(config.params))
+    except TypeError as error:
+        raise RegistryError(
+            f"Invalid params for model {config.id!r}: {dict(config.params)!r}"
+        ) from error
+
+
 def _metric_builder(metric_class: MetricType) -> MetricBuilder:
     def build(config: MetricConfig) -> Metric:
         return _build_metric_from_class(config, metric_class)
@@ -167,6 +190,8 @@ MODEL_BUILDERS = {
     "natasha_per": _build_natasha_per_model,
     "GLiNER2": _build_gliner2_model,
     "Qwen06B": _build_qwen06b_model,
+    "PIDR": _build_pidr_model,
+    "PIDR_finetuned": _build_fine_tuned_pidr_model,
 }
 
 METRIC_BUILDERS = {
@@ -235,4 +260,3 @@ __all__ = [
     "build_model",
     "build_pipeline_components",
 ]
-
