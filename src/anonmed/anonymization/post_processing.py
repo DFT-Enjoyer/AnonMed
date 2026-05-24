@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Final, Literal, Mapping, Sequence
 
-from anonmed.anonymization.numeric_pii import NumericPIIMatch, NumericPIIType
+from anonmed.anonymization.numeric_pii import NumericPIIMatch
 from anonmed.anonymization.restoration import (
     RestoredTextResult,
     patch_text,
@@ -14,8 +14,11 @@ from anonmed.preprocessing.asr.alignment import SourceSpan, TextAlignment
 PostProcessingMode = Literal["balanced", "conservative", "production_safe"]
 MaskingStrategy = Literal["type", "same_length"]
 
+PIIEntityType = str
+
 __all__: tuple[str, ...] = (
     "MaskingStrategy",
+    "PIIEntityType",
     "PIICandidate",
     "PostProcessedEntityGroup",
     "PostProcessedPIIMention",
@@ -25,9 +28,10 @@ __all__: tuple[str, ...] = (
     "patch_text",
     "resolve_pii_candidates",
     "run_numeric_post_processing",
+    "run_pii_post_processing",
 )
 
-_DIRECT_IDENTIFIER_TYPES: Final[frozenset[NumericPIIType]] = frozenset(
+_DIRECT_IDENTIFIER_TYPES: Final[frozenset[str]] = frozenset(
     {
         "PHONE",
         "SNILS",
@@ -40,16 +44,21 @@ _DIRECT_IDENTIFIER_TYPES: Final[frozenset[NumericPIIType]] = frozenset(
         "DRIVER_LICENSE",
     }
 )
-_SENSITIVITY_RANKS: Final[Mapping[NumericPIIType, int]] = {
+_SENSITIVITY_RANKS: Final[Mapping[str, int]] = {
     "PHONE": 100,
     "SNILS": 99,
     "PASSPORT": 98,
     "OMS": 97,
     "INN": 96,
     "DRIVER_LICENSE": 94,
+    "EMAIL": 93,
     "DATE_BIRTH": 90,
+    "PER": 84,
+    "PERSON": 84,
+    "NAME": 84,
     "MSE": 88,
     "BIRTH_CERTIFICATE": 86,
+    "ADDRESS": 72,
     "AGE": 30,
 }
 _SOURCE_PRIORS: Final[Mapping[str, float]] = {
@@ -63,7 +72,7 @@ _SOURCE_PRIORS: Final[Mapping[str, float]] = {
 
 @dataclass(frozen=True, slots=True)
 class PIICandidate:
-    entity_type: NumericPIIType
+    entity_type: PIIEntityType
     source: str
     source_score: float
     start: int
@@ -93,7 +102,7 @@ class PIICandidate:
 
 @dataclass(frozen=True, slots=True)
 class PostProcessedPIIMention:
-    entity_type: NumericPIIType
+    entity_type: PIIEntityType
     original_start: int
     original_end: int
     normalized_start: int
@@ -127,7 +136,7 @@ class PostProcessedPIIMention:
 @dataclass(frozen=True, slots=True)
 class PostProcessedEntityGroup:
     entity_id: str
-    entity_type: NumericPIIType
+    entity_type: PIIEntityType
     normalized_value: str
     mention_ids: tuple[str, ...]
     mention_count: int
@@ -212,20 +221,40 @@ def resolve_pii_candidates(
     return tuple(sorted(selected_candidates, key=lambda item: (item.start, item.end)))
 
 
-
 def run_numeric_post_processing(
     *,
     original_text: str,
     normalized_text: str,
     alignment: TextAlignment,
     normalized_matches: Sequence[NumericPIIMatch],
-    replacement_by_type: Mapping[NumericPIIType, str] | None = None,
+    replacement_by_type: Mapping[str, str] | None = None,
     mode: PostProcessingMode = "production_safe",
     masking_strategy: MaskingStrategy = "type",
 ) -> PostProcessingResult:
     candidates: tuple[PIICandidate, ...] = tuple(
         candidate_from_numeric_match(match) for match in normalized_matches
     )
+    return run_pii_post_processing(
+        original_text=original_text,
+        normalized_text=normalized_text,
+        alignment=alignment,
+        candidates=candidates,
+        replacement_by_type=replacement_by_type,
+        mode=mode,
+        masking_strategy=masking_strategy,
+    )
+
+
+def run_pii_post_processing(
+    *,
+    original_text: str,
+    normalized_text: str,
+    alignment: TextAlignment,
+    candidates: Sequence[PIICandidate],
+    replacement_by_type: Mapping[str, str] | None = None,
+    mode: PostProcessingMode = "production_safe",
+    masking_strategy: MaskingStrategy = "type",
+) -> PostProcessingResult:
     selected_candidates: tuple[PIICandidate, ...] = resolve_pii_candidates(
         candidates,
         mode=mode,
@@ -276,7 +305,7 @@ def run_numeric_post_processing(
     return PostProcessingResult(
         mode=mode,
         masking_strategy=masking_strategy,
-        candidates=candidates,
+        candidates=tuple(candidates),
         selected_candidates=selected_candidates,
         mentions=grouped_mentions,
         entity_groups=entity_groups,
@@ -366,7 +395,7 @@ def _project_candidates(
     normalized_text: str,
     alignment: TextAlignment,
     candidates: Sequence[PIICandidate],
-    replacement_by_type: Mapping[NumericPIIType, str],
+    replacement_by_type: Mapping[str, str],
     masking_strategy: MaskingStrategy,
 ) -> tuple[PostProcessedPIIMention, ...]:
     mentions: list[PostProcessedPIIMention] = []
@@ -414,7 +443,7 @@ def _resolve_projected_overlaps(
     normalized_text: str,
     mentions: Sequence[PostProcessedPIIMention],
     mode: PostProcessingMode,
-    replacement_by_type: Mapping[NumericPIIType, str],
+    replacement_by_type: Mapping[str, str],
     masking_strategy: MaskingStrategy,
 ) -> tuple[PostProcessedPIIMention, ...]:
     sorted_mentions: list[PostProcessedPIIMention] = sorted(
@@ -469,7 +498,7 @@ def _resolve_projected_overlaps(
 
 
 def _same_entity_component(mentions: Sequence[PostProcessedPIIMention]) -> bool:
-    entity_keys: set[tuple[NumericPIIType, str]] = {
+    entity_keys: set[tuple[str, str]] = {
         (mention.entity_type, mention.normalized_value) for mention in mentions
     }
     return len(entity_keys) == 1
@@ -492,7 +521,7 @@ def _merge_mention_component(
     original_text: str,
     normalized_text: str,
     mentions: Sequence[PostProcessedPIIMention],
-    replacement_by_type: Mapping[NumericPIIType, str],
+    replacement_by_type: Mapping[str, str],
     masking_strategy: MaskingStrategy,
 ) -> PostProcessedPIIMention:
     best_mention: PostProcessedPIIMention = _best_mention(mentions)
@@ -529,11 +558,11 @@ def _assign_entity_groups(
         mentions,
         key=lambda item: (item.original_start, item.original_end),
     )
-    entity_index_by_key: dict[tuple[NumericPIIType, str], int] = {}
-    mentions_by_key: dict[tuple[NumericPIIType, str], list[PostProcessedPIIMention]] = {}
+    entity_index_by_key: dict[tuple[str, str], int] = {}
+    mentions_by_key: dict[tuple[str, str], list[PostProcessedPIIMention]] = {}
     grouped_mentions: list[PostProcessedPIIMention] = []
     for mention in sorted_mentions:
-        key: tuple[NumericPIIType, str] = (mention.entity_type, mention.normalized_value)
+        key: tuple[str, str] = (mention.entity_type, mention.normalized_value)
         if key not in entity_index_by_key:
             entity_index_by_key[key] = len(entity_index_by_key) + 1
         entity_index: int = entity_index_by_key[key]
@@ -575,9 +604,9 @@ def _assign_entity_groups(
 
 def _replacement_for_span(
     *,
-    entity_type: NumericPIIType,
+    entity_type: str,
     span_length: int,
-    replacement_by_type: Mapping[NumericPIIType, str],
+    replacement_by_type: Mapping[str, str],
     masking_strategy: MaskingStrategy,
 ) -> str:
     explicit_replacement: str | None = replacement_by_type.get(entity_type)
@@ -586,5 +615,3 @@ def _replacement_for_span(
     if masking_strategy == "same_length":
         return "*" * max(1, span_length)
     return f"[{entity_type}]"
-
-

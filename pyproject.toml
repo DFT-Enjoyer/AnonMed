@@ -43,6 +43,7 @@ dev = [
 ]
 
 [project.scripts]
+anonmed = "anonmed.cli:main"
 anonmed-preprocess = "anonmed.cli:main"
 
 [tool.hatch.build.targets.wheel]

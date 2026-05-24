@@ -1,16 +1,17 @@
 import sys
 from pathlib import Path
-from anonmed.ml.config import load_pipeline_config
-from anonmed.ml.registry import build_pipeline_components
-from anonmed.ml.factory import evaluate, create_dataset_snapshot_writer
-from anonmed.ml.metrics.base import Metric
-from anonmed.ml.outputs import build_run_instance_dir
 
-def main():
+from anonmed.ml.config import load_pipeline_config
+from anonmed.ml.factory import create_dataset_snapshot_writer, evaluate
+from anonmed.ml.outputs import build_run_instance_dir
+from anonmed.ml.registry import build_pipeline_components
+
+
+def main() -> None:
     if len(sys.argv) != 2:
         print("Usage: python run_evaluation.py <config.yaml>")
         sys.exit(1)
-    config_path = Path(sys.argv[1])
+    config_path: Path = Path(sys.argv[1])
     if not config_path.exists():
         print(f"Config not found: {config_path}")
         sys.exit(1)
@@ -39,5 +40,9 @@ def main():
     for name, values in report.metrics.items():
         print(f"{name}: {values}")
 
+
 if __name__ == "__main__":
     main()
+
+
+__all__: list[str] = ["main"]

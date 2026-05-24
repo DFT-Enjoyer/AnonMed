@@ -12,13 +12,16 @@ from anonmed.anonymization.numeric_pii import (
 )
 from anonmed.anonymization.post_processing import (
     MaskingStrategy,
+    PIIEntityType,
     PIICandidate,
     PostProcessedEntityGroup,
     PostProcessedPIIMention,
     PostProcessingMode,
     PostProcessingResult,
+    candidate_from_numeric_match,
     resolve_pii_candidates,
     run_numeric_post_processing,
+    run_pii_post_processing,
 )
 from anonmed.anonymization.restoration import (
     OriginalTextRestorer,
@@ -39,6 +42,7 @@ __all__: list[str] = [
     "NumericPIIType",
     "NumericPIIPipelineResult",
     "OriginalTextRestorer",
+    "PIIEntityType",
     "RestoredTextResult",
     "restore_safe_original_text",
     "PIICandidate",
@@ -47,12 +51,13 @@ __all__: list[str] = [
     "PostProcessingMode",
     "PostProcessingResult",
     "build_default_numeric_rules",
+    "candidate_from_numeric_match",
     "collect_numeric_pii_candidates",
     "find_numeric_pii",
     "mask_numeric_pii",
     "normalize_numeric_pii_value",
     "resolve_pii_candidates",
     "run_numeric_post_processing",
+    "run_pii_post_processing",
     "run_numeric_pii_pipeline",
 ]
-

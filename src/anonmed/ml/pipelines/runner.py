@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any
 
 from anonmed.ml.config import ModelConfig
@@ -19,6 +20,14 @@ from anonmed.ml.registry import build_model
 RunnerModel = str | PIIModel | set[str]
 
 
+@dataclass(frozen=True, slots=True)
+class ModelRunnerResult:
+    text: str
+    annotation: AnnotationSet
+    spans: tuple[Span, ...]
+    masked_text: str
+
+
 class ModelRunner:
     def __init__(self, model: RunnerModel = "example", **kwargs: Any) -> None:
         self._model: RunnerModel = model
@@ -26,6 +35,20 @@ class ModelRunner:
         self._pii_model: PIIModel | None = None
 
     def __call__(self, text: str) -> str:
+        return self.mask(text)
+
+    def run(self, text: str) -> ModelRunnerResult:
+        annotation: AnnotationSet = self.predict(text)
+        spans: tuple[Span, ...] = _spans_from_annotation(annotation, text_length=len(text))
+        masked_text: str = _mask_text_with_spans(text=text, spans=spans)
+        return ModelRunnerResult(
+            text=text,
+            annotation=annotation,
+            spans=spans,
+            masked_text=masked_text,
+        )
+
+    def predict(self, text: str) -> AnnotationSet:
         if not isinstance(text, str):
             raise TypeError(f"text must be str, got {type(text).__name__}")
 
@@ -36,8 +59,13 @@ class ModelRunner:
             unexpected_params: str = ", ".join(sorted(kwargs))
             raise TypeError(f"Unexpected ModelRunner params for PIIModel inference: {unexpected_params}")
         document: TextDocument = _document_from_text(text)
-        prediction: AnnotationSet = pii_model.predict(document)
-        return _mask_text_with_annotation(text=text, annotation=prediction)
+        return pii_model.predict(document)
+
+    def spans(self, text: str) -> tuple[Span, ...]:
+        return self.run(text).spans
+
+    def mask(self, text: str) -> str:
+        return self.run(text).masked_text
 
     def _resolve_pii_model(self, model: str | PIIModel, model_params: object) -> PIIModel:
         if isinstance(model, PIIModel):
@@ -74,17 +102,28 @@ def _document_from_text(text: str) -> TextDocument:
 
 
 def _mask_text_with_annotation(text: str, annotation: AnnotationSet) -> str:
+    return _mask_text_with_spans(
+        text=text,
+        spans=_spans_from_annotation(annotation, text_length=len(text)),
+    )
+
+
+def _spans_from_annotation(annotation: AnnotationSet, *, text_length: int) -> tuple[Span, ...]:
     line: AnnotationSetLine | None = _first_line(annotation.lines)
     if line is None:
-        return text
+        return ()
     spans: list[Span] = sorted(
-        [span for span in line.spans if 0 <= span.begin < span.end <= len(text)],
+        [span for span in line.spans if 0 <= span.begin < span.end <= text_length],
         key=lambda span: (span.begin, span.end),
-        reverse=True,
     )
+    return tuple(spans)
+
+
+def _mask_text_with_spans(text: str, spans: Iterable[Span]) -> str:
     masked_text: str = text
     next_start: int = len(text) + 1
-    for span in spans:
+    sorted_spans: list[Span] = sorted(spans, key=lambda span: (span.begin, span.end), reverse=True)
+    for span in sorted_spans:
         if span.end > next_start:
             continue
         replacement: str = f"[{span.label}]"
@@ -99,4 +138,4 @@ def _first_line(lines: Iterable[AnnotationSetLine]) -> AnnotationSetLine | None:
     return None
 
 
-__all__: list[str] = ["ModelRunner", "RunnerModel"]
+__all__: list[str] = ["ModelRunner", "ModelRunnerResult", "RunnerModel"]

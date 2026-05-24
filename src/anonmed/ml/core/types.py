@@ -25,7 +25,8 @@ class ParticipantKind(str, Enum):
 
 
 def _ensure_non_negative(value: int, field_name: str) -> None:
-    if value < 0: raise ValueError(f"{field_name} must be non-negative, got {value}")
+    if value < 0:
+        raise ValueError(f"{field_name} must be non-negative, got {value}")
 
 
 def _ensure_non_empty_string(value: Any, field_name: str) -> None:

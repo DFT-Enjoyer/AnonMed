@@ -9,13 +9,22 @@ from functools import lru_cache
 import json
 import math
 from pathlib import Path
+import sys
 from typing import Iterable, Literal, Mapping, Sequence, cast
 
-from anonmed.anonymization import NumericPIIType, normalize_numeric_pii_value, run_numeric_pii_pipeline
-from anonmed.preprocessing.asr.number_extractor import IntegerExtractor
-from anonmed.preprocessing.asr.number_parser import parse_numeric_tokens
-from anonmed.preprocessing.asr.tokenization import tokenize_preserving_spans
-from anonmed.preprocessing.asr.types import ExtractorConfig, NumericToken, Token
+_REPOSITORY_ROOT: Path = Path(__file__).resolve().parents[1]
+if str(_REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPOSITORY_ROOT))
+
+from anonmed.anonymization import (  # noqa: E402
+    NumericPIIType,
+    normalize_numeric_pii_value,
+    run_numeric_pii_pipeline,
+)
+from anonmed.preprocessing.asr.number_extractor import IntegerExtractor  # noqa: E402
+from anonmed.preprocessing.asr.number_parser import parse_numeric_tokens  # noqa: E402
+from anonmed.preprocessing.asr.tokenization import tokenize_preserving_spans  # noqa: E402
+from anonmed.preprocessing.asr.types import ExtractorConfig, NumericToken, Token  # noqa: E402
 
 NUMERIC_TYPE_MAP: dict[str, str] = {
     "ТЕЛЕФОН": "PHONE",
