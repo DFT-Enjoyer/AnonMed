@@ -39,7 +39,7 @@ _COMMON_NEGATIVE_CONTEXT_PATTERNS: Final[tuple[str, ...]] = (
     r"\b(?:гемоглобин\w*|лейкоцит\w*|тромбоцит\w*|креатинин\w*|билирубин\w*)\b",
     r"\b(?:дозировк\w*|таблет\w*|капсул\w*|капл\w*|ампул\w*|миллиграм\w*|мг|мл|единиц\w*)\b",
     r"\b(?:дн(?:я|ей)|недел\w*|месяц\w*|час\w*|минут\w*|секунд\w*)\b",
-    r"\b(?:кабинет\w*|палат\w*|этаж\w*|корпус\w*|дом\w*|квартир\w*|рост\w*|вес\w*)\b",
+    r"\b(?:кабинет\w*|палат\w*|этаж\w*|корпус\w*|квартир\w*|рост\w*|вес\w*)\b",
     r"\b(?:мкб|код\s+мкб|диагноз\w*|анализ\w*)\b",
 )
 _AGE_BACKWARD_SCALE_RE: Final[Pattern[str]] = re.compile(
@@ -229,6 +229,8 @@ def _inn12_checksum_is_valid(digits: str) -> bool:
 
 def _normalize_phone(raw_value: str) -> str | None:
     digits: str = _digits_only(raw_value)
+    if len(digits) == 6 and not digits.startswith("0"):
+        return digits
     if len(digits) == 10 and digits.startswith("9"):
         return "+7" + digits
     if len(digits) == 11 and digits[0] in {"7", "8"} and digits[1] == "9":
@@ -294,15 +296,15 @@ def _normalize_value(pii_type: NumericPIIType, raw_value: str) -> str | None:
     if pii_type == "DATE_BIRTH":
         return _normalize_date_birth(raw_value)
     if pii_type == "OMS":
-        return _normalize_digits(raw_value, 10, 16)
+        return _normalize_digits(raw_value, 16)
     if pii_type == "INN":
         return _normalize_digits(raw_value, 12)
     if pii_type == "AGE":
         return _normalize_age(raw_value)
     if pii_type == "MSE":
-        return _normalize_digits(raw_value, 4, 12)
+        return _normalize_digits(raw_value, 11)
     if pii_type == "BIRTH_CERTIFICATE":
-        return _normalize_digits(raw_value, 4, 12)
+        return _normalize_digits(raw_value, 6)
     if pii_type == "DRIVER_LICENSE":
         return _normalize_digits(raw_value, 10)
     return None
@@ -412,6 +414,7 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
         rf"(?:(?:7|8){_SEPARATOR_PATTERN})?"
         rf"9{_SEPARATOR_PATTERN}(?:\d{_SEPARATOR_PATTERN}){{9}}"
     )
+    phone_landline_value_pattern: str = rf"[1-9]{_SEPARATOR_PATTERN}(?:\d{_SEPARATOR_PATTERN}){{5}}"
     passport_value_pattern: str = (
         rf"{_digit_count_pattern(4)}(?:номер{_WORD_SEPARATOR_PATTERN})?{_digit_count_pattern(6)}"
     )
@@ -423,11 +426,11 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
         rf"(?:0[1-9]|[12]\d|3[01])(?:0[1-9]|1[0-2])(?:19|20)\d{{2}}"
     )
     age_value_pattern: str = r"(?:[1-9]\d?|1[01]\d|120)"
-    oms_value_pattern: str = rf"(?:{_digit_count_pattern(16)}|{_digit_count_pattern(10)})"
-    mse_compound_value_pattern: str = (
-        rf"(?:\d{_SEPARATOR_PATTERN}){{4,8}}(?:/|\s*дробь\s*)(?:\d{_SEPARATOR_PATTERN}){{2,4}}"
+    mse_value_pattern: str = (
+        rf"{_digit_count_pattern(4)}"
+        rf"(?:(?:номер|номер\s+акта|акт){_WORD_SEPARATOR_PATTERN})?"
+        rf"{_digit_count_pattern(7)}"
     )
-    mse_value_pattern: str = rf"(?:{mse_compound_value_pattern}|{_digit_count_pattern(4, 12)})"
 
     return (
         NumericPIIRule(
@@ -472,6 +475,7 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
                 (
                     r"\b(?:водительск\w*\s+удостоверени\w*|водительск\w*\s+прав\w*)\b",
                     r"\b(?:права\w*\s+номер\w*|номер\w*\s+прав\w*)\b",
+                    r"\b(?:удостоверени\w*\s+водител\w*|ву)\b",
                 )
             ),
             negative_context=document_negative_context,
@@ -484,11 +488,12 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
         NumericPIIRule(
             pii_type="OMS",
             rule_id="oms_policy_number_with_context",
-            pattern=_compile(_bounded_value_pattern(oms_value_pattern)),
+            pattern=_compile(_bounded_value_pattern(_digit_count_pattern(16))),
             positive_context=_compile_many(
                 (
                     r"\b(?:омс|полис\w*)\b",
                     r"\b(?:обязательн\w*\s+медицинск\w*\s+страхован\w*)\b",
+                    r"\b(?:един\w*\s+полис\w*|номер\w*\s+полис\w*)\b",
                 )
             ),
             negative_context=document_negative_context,
@@ -550,6 +555,23 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
             base_confidence=0.76,
         ),
         NumericPIIRule(
+            pii_type="PHONE",
+            rule_id="russian_landline_phone_with_context",
+            pattern=_compile(_bounded_value_pattern(phone_landline_value_pattern)),
+            positive_context=_compile_many(
+                (
+                    r"\b(?:телефон\w*|домашн\w*|городск\w*|номер\s+телефон\w*)\b",
+                    r"\b(?:позвон\w*|перезвон\w*|для\s+связи)\b",
+                )
+            ),
+            negative_context=phone_negative_context,
+            require_context=True,
+            context_window=56,
+            context_after_window=0,
+            priority=71,
+            base_confidence=0.71,
+        ),
+        NumericPIIRule(
             pii_type="MSE",
             rule_id="mse_certificate_number_with_context",
             pattern=_compile(_bounded_value_pattern(mse_value_pattern)),
@@ -557,6 +579,7 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
                 (
                     r"\b(?:мсэ|медико\s+социальн\w*\s+экспертиз\w*)\b",
                     r"\b(?:справк\w*\s+мсэ|акт\w*\s+мсэ|инвалидност\w*)\b",
+                    r"\b(?:номер\w*\s+акт\w*|серия\w*\s+мсэ)\b",
                 )
             ),
             negative_context=document_negative_context,
@@ -569,11 +592,12 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
         NumericPIIRule(
             pii_type="BIRTH_CERTIFICATE",
             rule_id="birth_certificate_number_with_context",
-            pattern=_compile(_bounded_value_pattern(_digit_count_pattern(4, 12))),
+            pattern=_compile(_bounded_value_pattern(_digit_count_pattern(6))),
             positive_context=_compile_many(
                 (
                     r"\b(?:свидетельств\w*\s+о\s+рождени\w*)\b",
                     r"\b(?:номер\w*\s+свидетельств\w*)\b",
+                    r"\b(?:актов\w*\s+запис\w*|запис\w*\s+о\s+рождени\w*)\b",
                 )
             ),
             negative_context=document_negative_context,
