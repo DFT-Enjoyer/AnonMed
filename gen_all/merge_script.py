@@ -61,15 +61,14 @@ COLUMN_RENAME = {
 # Определение корня проекта
 # ---------------------------------------------------------------------------
 
-SCRIPT_DIR = Path(__file__).resolve().parent          # папка, где лежит этот скрипт
-PROJECT_ROOT = SCRIPT_DIR.parent                     # ожидаем, что gen_all находится в корне
+SCRIPT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = SCRIPT_DIR            # теперь корнем считается сама папка со скриптом
 
-# Проверяем наличие необходимых папок в корне
+# Проверка папок
 REQUIRED_DIRS = ["DataForGen", "generate_numbers", "transclit"]
 for d in REQUIRED_DIRS:
     if not (PROJECT_ROOT / d).is_dir():
-        print(f"Ошибка: папка '{d}' не найдена в корне проекта ({PROJECT_ROOT}).",
-              file=sys.stderr)
+        print(f"Ошибка: папка '{d}' не найдена в {PROJECT_ROOT}.", file=sys.stderr)
         sys.exit(1)
 
 DATA_FOR_GEN = PROJECT_ROOT / "DataForGen"
