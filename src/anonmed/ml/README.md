@@ -46,6 +46,14 @@
 
 Пайплайн `example.py` запускается командой `python3 -m anonmed.ml.pipelines.example src/anonmed/ml/configs/example.yaml` из корня проекта.
 
+Подбор threshold и entity prompt для GLiNER2 через Optuna запускается так:
+
+```bash
+python3 -m anonmed.ml.pipelines.GLiNER2_TrH_Tests --config src/anonmed/ml/configs/GLiNER2.yaml
+```
+
+По умолчанию используется exhaustive Optuna `GridSampler` по сетке threshold'ов и prompt'ов. Пайплайн выбирает trial с максимальным `entity_hard_precision` при `entity_hard_recall >= 0.9`, сохраняет лучший `report.json` и полный `trials.json` в `instance/<run.name>_threshold_search/.../`. Для стохастического поиска можно явно указать, например, `--sampler tpe --n-trials 30`.
+
 Результаты запуска сохраняются в отдельную директорию внутри `outputs.instance_dir`:
 
 <!-- Что бы визуализировать полученные результаты использовать команду: `python3 -m anonmed.ml.visualization.dashboard --instance-root instance --output instance/dashboard.html`
