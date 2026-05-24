@@ -3,6 +3,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 import json
 
+from anonmed.preprocessing.asr.alignment import (
+    TextAlignment,
+    align_texts_by_diff,
+    build_replacement_alignment,
+    compose_alignments,
+)
 from anonmed.preprocessing.asr.contacts import (
     ContactNormalizedText,
     ContactNormalizer,
@@ -63,6 +69,7 @@ class ASRNormalizationResult:
     document_number_spans: tuple[DocumentNumberSpan, ...] = field(default_factory=tuple)
     date_birth_spans: tuple[DateBirthSpan, ...] = field(default_factory=tuple)
     contact_spans: tuple[ContactSpan, ...] = field(default_factory=tuple)
+    normalized_to_original_alignment: TextAlignment | None = None
 
 
 class ASRNormalizationPipeline:
@@ -103,6 +110,10 @@ class ASRNormalizationPipeline:
             disfluency_cleaned = self.disfluency_filter.clean(text)
         else:
             disfluency_cleaned = CleanedText(original_text=text, text=text)
+        original_to_disfluency_alignment: TextAlignment = align_texts_by_diff(
+            text,
+            disfluency_cleaned.text,
+        )
 
         punctuation_cleaned: PunctuationCleanedText
         if self.remove_punctuation:
@@ -112,6 +123,14 @@ class ASRNormalizationPipeline:
                 original_text=disfluency_cleaned.text,
                 text=disfluency_cleaned.text,
             )
+        disfluency_to_punctuation_alignment: TextAlignment = align_texts_by_diff(
+            disfluency_cleaned.text,
+            punctuation_cleaned.text,
+        )
+        original_to_punctuation_alignment: TextAlignment = compose_alignments(
+            original_to_disfluency_alignment,
+            disfluency_to_punctuation_alignment,
+        )
 
         repetition_cleaned_text: str = punctuation_cleaned.text
         repetition_suppressed_indexes: tuple[int, ...] = ()
@@ -125,10 +144,26 @@ class ASRNormalizationPipeline:
             )
             repetition_cleaned_text = repetition_result.clean_transcript
             repetition_suppressed_indexes = repetition_result.suppressed_indexes
+        punctuation_to_repetition_alignment: TextAlignment = align_texts_by_diff(
+            punctuation_cleaned.text,
+            repetition_cleaned_text,
+        )
+        original_to_repetition_alignment: TextAlignment = compose_alignments(
+            original_to_punctuation_alignment,
+            punctuation_to_repetition_alignment,
+        )
 
         cleaned_text: str = repetition_cleaned_text
         integer_spans: list[IntegerSpan] = self.integer_extractor.extract(cleaned_text)
-        numeric_normalized_text: str = self.integer_extractor.replace(cleaned_text)
+        cleaned_to_numeric_alignment: TextAlignment = build_replacement_alignment(
+            cleaned_text,
+            integer_spans,
+        )
+        numeric_normalized_text: str = cleaned_to_numeric_alignment.target_text
+        original_to_numeric_alignment: TextAlignment = compose_alignments(
+            original_to_repetition_alignment,
+            cleaned_to_numeric_alignment,
+        )
 
         document_number_normalized: DocumentNumberNormalizedText
         if self.normalize_document_numbers:
@@ -140,6 +175,14 @@ class ASRNormalizationPipeline:
                 original_text=numeric_normalized_text,
                 text=numeric_normalized_text,
             )
+        numeric_to_document_alignment: TextAlignment = build_replacement_alignment(
+            numeric_normalized_text,
+            document_number_normalized.spans,
+        )
+        original_to_document_alignment: TextAlignment = compose_alignments(
+            original_to_numeric_alignment,
+            numeric_to_document_alignment,
+        )
 
         date_birth_normalized: DateBirthNormalizedText
         if self.normalize_date_birth:
@@ -151,6 +194,14 @@ class ASRNormalizationPipeline:
                 original_text=document_number_normalized.text,
                 text=document_number_normalized.text,
             )
+        document_to_date_birth_alignment: TextAlignment = build_replacement_alignment(
+            document_number_normalized.text,
+            date_birth_normalized.spans,
+        )
+        original_to_date_birth_alignment: TextAlignment = compose_alignments(
+            original_to_document_alignment,
+            document_to_date_birth_alignment,
+        )
 
         contact_normalized: ContactNormalizedText
         if self.normalize_contacts:
@@ -160,6 +211,14 @@ class ASRNormalizationPipeline:
                 original_text=date_birth_normalized.text,
                 text=date_birth_normalized.text,
             )
+        date_birth_to_contact_alignment: TextAlignment = build_replacement_alignment(
+            date_birth_normalized.text,
+            contact_normalized.spans,
+        )
+        normalized_to_original_alignment: TextAlignment = compose_alignments(
+            original_to_date_birth_alignment,
+            date_birth_to_contact_alignment,
+        )
 
         normalized_text: str = contact_normalized.text
         result = ASRNormalizationResult(
@@ -181,6 +240,7 @@ class ASRNormalizationPipeline:
             document_number_spans=document_number_normalized.spans,
             date_birth_spans=date_birth_normalized.spans,
             contact_spans=contact_normalized.spans,
+            normalized_to_original_alignment=normalized_to_original_alignment,
         )
         return result
 

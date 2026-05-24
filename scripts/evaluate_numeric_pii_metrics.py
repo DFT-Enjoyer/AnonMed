@@ -19,15 +19,26 @@ from anonmed.preprocessing.asr.types import ExtractorConfig, NumericToken, Token
 
 NUMERIC_TYPE_MAP: dict[str, str] = {
     "ТЕЛЕФОН": "PHONE",
+    "phone": "PHONE",
     "СНИЛС": "SNILS",
+    "snils": "SNILS",
     "ПАСПОРТ": "PASSPORT",
+    "passport": "PASSPORT",
     "ДАТА_РОЖДЕНИЯ": "DATE_BIRTH",
+    "birthdate": "DATE_BIRTH",
+    "date_birth": "DATE_BIRTH",
     "ОМС": "OMS",
+    "oms": "OMS",
     "ИНН": "INN",
+    "inn": "INN",
     "ВОЗРАСТ": "AGE",
+    "age": "AGE",
     "МСЭ": "MSE",
+    "mse": "MSE",
     "СВИДЕТЕЛЬСТВО": "BIRTH_CERTIFICATE",
+    "birth_certificate": "BIRTH_CERTIFICATE",
     "ВУ": "DRIVER_LICENSE",
+    "driver_license": "DRIVER_LICENSE",
 }
 
 MONTH_MAP: dict[str, int] = {
@@ -576,7 +587,13 @@ def load_records(path: Path) -> list[dict[str, object]]:
             stripped_line: str = line.strip()
             if not stripped_line:
                 continue
-            records.append(json.loads(stripped_line))
+            record: dict[str, object] = json.loads(stripped_line)
+            record.setdefault("id", len(records) + 1)
+            if "value" not in record and "source_text" in record:
+                record["value"] = record["source_text"]
+            if "annotations" not in record and "entities" in record:
+                record["annotations"] = record["entities"]
+            records.append(record)
     return records
 
 
