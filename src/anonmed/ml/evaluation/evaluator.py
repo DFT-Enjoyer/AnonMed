@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.models.base import PIIModel
 from anonmed.ml.core.types import AnnotationSet, EvaluationReport, MetricResult
@@ -14,11 +14,20 @@ class Evaluator:
     def dataset(self) -> Dataset:
         return self._dataset
 
-    def eval_model(self, model: PIIModel, metrics: Sequence[Metric]) -> EvaluationReport:
+    def eval_model(
+        self,
+        model: PIIModel,
+        metrics: Sequence[Metric],
+        *,
+        show_progress: bool = False,
+    ) -> EvaluationReport:
         for metric in metrics:
             metric.reset()
 
-        predictions: tuple[AnnotationSet, ...] = model.process(self.dataset.documents)
+        predictions: tuple[AnnotationSet, ...] = model.process(
+            self.dataset.documents,
+            show_progress=show_progress,
+        )
 
         results: dict[str, MetricResult] = {}
         for metric in metrics:

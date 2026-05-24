@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
-from pathlib import Path
 from typing import Any, Sequence
 
 from anonmed.ml.config import PipelineConfig, load_pipeline_config
@@ -11,6 +10,7 @@ from anonmed.ml.core.snapshot import DatasetSnapshotWriter
 from anonmed.ml.core.types import EvaluationReport
 from anonmed.ml.factory import evaluate
 from anonmed.ml.models.base import PIIModel, TrainablePIIModel
+from anonmed.ml.outputs import build_run_instance_dir
 from anonmed.ml.registry import PipelineComponents, build_pipeline_components
 
 
@@ -42,10 +42,10 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
 
     report: EvaluationReport | None = None
     if config.evaluation.enabled:
-        report = evaluate(components.dataset, model, components.metrics)
+        report = evaluate(components.dataset, model, components.metrics, show_progress=True)
 
-    artifact_dir = Path(config.outputs.artifacts_dir)
-    artifact_dir.mkdir(parents=True, exist_ok=True)
+    instance_dir = build_run_instance_dir(config)
+    instance_dir.mkdir(parents=True, exist_ok=True)
 
     payload: dict[str, Any] = {
         "run": asdict(config.run),
@@ -58,19 +58,19 @@ def run_pipeline(config: PipelineConfig) -> dict[str, Any]:
         "metric_results": {} if report is None else report.metrics,
     }
 
-    report_path = artifact_dir / config.outputs.report_filename
+    report_path = instance_dir / config.outputs.report_filename
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    payload["artifacts"] = {"report": str(report_path)}
+    payload["instance"] = {"run_dir": str(instance_dir), "report": str(report_path)}
 
     snapshot_writer = DatasetSnapshotWriter()
     if config.outputs.write_dataset_snapshot_json:
-        snapshot_path = artifact_dir / "dataset_snapshot.json"
+        snapshot_path = instance_dir / "dataset_snapshot.json"
         snapshot_writer.write_json(components.dataset, snapshot_path)
-        payload["artifacts"]["dataset_snapshot_json"] = str(snapshot_path)
+        payload["instance"]["dataset_snapshot_json"] = str(snapshot_path)
     if config.outputs.write_dataset_snapshot_parquet:
-        snapshot_path = artifact_dir / "dataset_snapshot.parquet"
+        snapshot_path = instance_dir / "dataset_snapshot.parquet"
         snapshot_writer.write_parquet(components.dataset, snapshot_path)
-        payload["artifacts"]["dataset_snapshot_parquet"] = str(snapshot_path)
+        payload["instance"]["dataset_snapshot_parquet"] = str(snapshot_path)
 
     report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload
@@ -84,7 +84,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.json:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        print(f"report: {payload['artifacts']['report']}")
+        print(f"report: {payload['instance']['report']}")
     return 0
 
 

@@ -5,20 +5,54 @@ from anonmed.anonymization.numeric_pii import (
     NumericPIIRule,
     NumericPIIType,
     build_default_numeric_rules,
+    collect_numeric_pii_candidates,
     find_numeric_pii,
     mask_numeric_pii,
     normalize_numeric_pii_value,
 )
-from anonmed.anonymization.pipeline import NumericPIIPipelineResult, run_numeric_pii_pipeline
+from anonmed.anonymization.post_processing import (
+    MaskingStrategy,
+    PIICandidate,
+    PostProcessedEntityGroup,
+    PostProcessedPIIMention,
+    PostProcessingMode,
+    PostProcessingResult,
+    resolve_pii_candidates,
+    run_numeric_post_processing,
+)
+from anonmed.anonymization.restoration import (
+    OriginalTextRestorer,
+    RestoredTextResult,
+    restore_safe_original_text,
+)
+from anonmed.anonymization.pipeline import (
+    AlignedNumericPIIMatch,
+    NumericPIIPipelineResult,
+    run_numeric_pii_pipeline,
+)
 
 __all__: list[str] = [
+    "AlignedNumericPIIMatch",
+    "MaskingStrategy",
     "NumericPIIMatch",
     "NumericPIIRule",
     "NumericPIIType",
     "NumericPIIPipelineResult",
+    "OriginalTextRestorer",
+    "RestoredTextResult",
+    "restore_safe_original_text",
+    "PIICandidate",
+    "PostProcessedEntityGroup",
+    "PostProcessedPIIMention",
+    "PostProcessingMode",
+    "PostProcessingResult",
     "build_default_numeric_rules",
+    "collect_numeric_pii_candidates",
     "find_numeric_pii",
     "mask_numeric_pii",
     "normalize_numeric_pii_value",
+    "resolve_pii_candidates",
+    "run_numeric_post_processing",
     "run_numeric_pii_pipeline",
 ]
+

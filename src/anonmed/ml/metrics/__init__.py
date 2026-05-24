@@ -1,24 +1,24 @@
 from .base import Metric
-from .char_hard import (
+from .hard.char import (
     CharHardAccuracyMetric,
     CharHardF1Metric,
     CharHardPrecisionMetric,
     CharHardRecallMetric,
 )
-from .char_soft import (
+from .soft.char import (
     CharSoftAccuracyMetric,
     CharSoftF1Metric,
     CharSoftPrecisionMetric,
     CharSoftRecallMetric,
 )
 from .coverage import CoveragePercentMetric
-from .entity_hard import (
+from .hard.entity import (
     EntityHardAccuracyMetric,
     EntityHardF1Metric,
     EntityHardPrecisionMetric,
     EntityHardRecallMetric,
 )
-from .entity_soft import (
+from .soft.entity import (
     EntitySoftAccuracyMetric,
     EntitySoftF1Metric,
     EntitySoftPrecisionMetric,

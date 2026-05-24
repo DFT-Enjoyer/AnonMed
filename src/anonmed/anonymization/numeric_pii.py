@@ -23,6 +23,7 @@ __all__: tuple[str, ...] = (
     "NumericPIIMatch",
     "NumericPIIRule",
     "build_default_numeric_rules",
+    "collect_numeric_pii_candidates",
     "find_numeric_pii",
     "mask_numeric_pii",
     "normalize_numeric_pii_value",
@@ -40,6 +41,90 @@ _COMMON_NEGATIVE_CONTEXT_PATTERNS: Final[tuple[str, ...]] = (
     r"\b(?:дн(?:я|ей)|недел\w*|месяц\w*|час\w*|минут\w*|секунд\w*)\b",
     r"\b(?:кабинет\w*|палат\w*|этаж\w*|корпус\w*|дом\w*|квартир\w*|рост\w*|вес\w*)\b",
     r"\b(?:мкб|код\s+мкб|диагноз\w*|анализ\w*)\b",
+)
+_AGE_BACKWARD_SCALE_RE: Final[Pattern[str]] = re.compile(
+    r"(?:\bиз|/)\s*$",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_SCALE_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*(?:\bиз|/)\s*\d",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_PAST_TIME_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*(?:год(?:а|ов)?\s+)?(?:\d+\s+)?назад\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_CLOCK_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*(?:утра|вечера|дня|ночи|час(?:а|ов)?)\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FAMILY_MEMBER_RE: Final[Pattern[str]] = re.compile(
+    r"\b(?:отец|отц[ауы]?|мам[ауы]?|мать|матер[ьи]?|пап[ауы]?|"
+    r"родител\w*|брат\w*|сестр\w*)\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FAMILY_AGE_CUE_RE: Final[Pattern[str]] = re.compile(
+    r"\b(?:лет\s+)?в\s*$",
+    flags=_REGEX_FLAGS,
+)
+_AGE_PATIENT_CONTEXT_RE: Final[Pattern[str]] = re.compile(
+    r"\b(?:возраст\w*|полных|сколько\s+(?:вам|ему|ей)|"
+    r"сколько\s+лет\s+(?:реб[её]нк\w*|[а-яё]+у)|"
+    r"вам\s+сейчас|мне\s+сейчас|ему\s+сейчас|ей\s+сейчас|"
+    r"пациент[уа]?\s+сейчас|пациент[уа]?|вам|мне|ему|ей)\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_INTRO_CONTEXT_RE: Final[Pattern[str]] = re.compile(
+    r"\b(?:представьтесь|представьте\w*|карточк\w*|оформляем|зовут)\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_BACKWARD_DURATION_YEARS_RE: Final[Pattern[str]] = re.compile(
+    r"\bлет\s*$",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_DURATION_YEARS_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*лет\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_BACKWARD_IN_RE: Final[Pattern[str]] = re.compile(
+    r"\bв\s*$",
+    flags=_REGEX_FLAGS,
+)
+_AGE_BACKWARD_YEARS_IN_RE: Final[Pattern[str]] = re.compile(
+    r"\bлет\s+в\s*$",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_YEAR_UNIT_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*год(?:а|ов)?\b",
+    flags=_REGEX_FLAGS,
+)
+_MONTH_NAME_PATTERN: Final[str] = (
+    r"январ\w*|феврал\w*|март\w*|апрел\w*|ма[йя]|июн\w*|июл\w*|"
+    r"август\w*|сентябр\w*|октябр\w*|ноябр\w*|декабр\w*"
+)
+_AGE_BACKWARD_DATE_RE: Final[Pattern[str]] = re.compile(
+    rf"(?:\b(?:{_MONTH_NAME_PATTERN})|\b\d{{1,2}}[./]\d{{1,2}}[./]?)\s*$",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_DATE_RE: Final[Pattern[str]] = re.compile(
+    rf"^\s*(?:{_MONTH_NAME_PATTERN})\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_BACKWARD_DOCUMENT_NUMBER_RE: Final[Pattern[str]] = re.compile(
+    r"\b(?:номер|серия|справк\w*|бюро)\s*$",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_DOCUMENT_FRACTION_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*(?:дробь|/)\s*\d",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_NON_AGE_UNIT_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*(?:тип\w*|стади\w*|групп\w*|процент\w*|%|микрограмм\w*|мкг)\b",
+    flags=_REGEX_FLAGS,
+)
+_AGE_FORWARD_PERIOD_RE: Final[Pattern[str]] = re.compile(
+    r"^\s*в\s+год\b",
+    flags=_REGEX_FLAGS,
 )
 
 
@@ -221,6 +306,59 @@ def _normalize_value(pii_type: NumericPIIType, raw_value: str) -> str | None:
     if pii_type == "DRIVER_LICENSE":
         return _normalize_digits(raw_value, 10)
     return None
+
+
+def _has_local_age_patient_context(text: str, start: int, end: int) -> bool:
+    before_context: str = text[max(0, start - 48) : start]
+    after_context: str = text[end : min(len(text), end + 24)]
+    patient_context_hit: bool = (
+        _AGE_PATIENT_CONTEXT_RE.search(before_context) is not None
+        or _AGE_PATIENT_CONTEXT_RE.search(after_context) is not None
+    )
+    intro_context_hit: bool = _AGE_INTRO_CONTEXT_RE.search(before_context) is not None
+    return patient_context_hit or intro_context_hit
+
+
+def _has_local_age_negative_context(text: str, start: int, end: int) -> bool:
+    before_context: str = text[max(0, start - 48) : start]
+    after_context: str = text[end : min(len(text), end + 24)]
+    patient_context_hit: bool = _has_local_age_patient_context(text, start, end)
+
+    if _AGE_BACKWARD_SCALE_RE.search(before_context) is not None:
+        return True
+    if _AGE_FORWARD_SCALE_RE.search(after_context) is not None:
+        return True
+    if _AGE_FORWARD_PAST_TIME_RE.search(after_context) is not None:
+        return True
+    if _AGE_FORWARD_CLOCK_RE.search(after_context) is not None:
+        return True
+    if _AGE_BACKWARD_DURATION_YEARS_RE.search(before_context) is not None and not patient_context_hit:
+        return True
+    if _AGE_BACKWARD_YEARS_IN_RE.search(before_context) is not None and not patient_context_hit:
+        return True
+    if _AGE_FORWARD_DURATION_YEARS_RE.search(after_context) is not None and not patient_context_hit:
+        return True
+    if (
+        _AGE_BACKWARD_IN_RE.search(before_context) is not None
+        and _AGE_FORWARD_YEAR_UNIT_RE.search(after_context) is not None
+        and not patient_context_hit
+    ):
+        return True
+    if _AGE_BACKWARD_DATE_RE.search(before_context) is not None:
+        return True
+    if _AGE_FORWARD_DATE_RE.search(after_context) is not None:
+        return True
+    if _AGE_BACKWARD_DOCUMENT_NUMBER_RE.search(before_context) is not None:
+        return True
+    if _AGE_FORWARD_DOCUMENT_FRACTION_RE.search(after_context) is not None:
+        return True
+    if _AGE_FORWARD_NON_AGE_UNIT_RE.search(after_context) is not None:
+        return True
+    if _AGE_FORWARD_PERIOD_RE.search(after_context) is not None:
+        return True
+    family_member_hit: bool = _AGE_FAMILY_MEMBER_RE.search(before_context) is not None
+    family_age_cue_hit: bool = _AGE_FAMILY_AGE_CUE_RE.search(before_context) is not None
+    return family_member_hit and family_age_cue_hit
 
 
 def normalize_numeric_pii_value(pii_type: NumericPIIType, raw_value: str) -> str | None:
@@ -453,7 +591,7 @@ def _create_default_numeric_rules() -> tuple[NumericPIIRule, ...]:
                 (
                     r"\b(?:возраст\w*|сколько\s+лет|полных|исполн(?:илось|ится))\b",
                     r"\b(?:вам\s+сейчас|ему\s+сейчас|ей\s+сейчас|пациент[у]?\s+сейчас)\b",
-                    r"\b(?:лет|год|года)\b",
+                    r"\b(?:лет|год(?:а|ов)?|годик\w*)\b",
                 )
             ),
             negative_context=age_negative_context,
@@ -488,6 +626,8 @@ def _candidate_from_match(
     normalized_value: str | None = _normalize_value(rule.pii_type, raw_value)
     if normalized_value is None:
         return None
+    if rule.pii_type == "AGE" and _has_local_age_negative_context(text, start, end):
+        return None
 
     before_start: int = max(0, start - rule.context_window)
     after_end: int = min(len(text), end + rule.context_after_window)
@@ -496,7 +636,9 @@ def _candidate_from_match(
     if rule.require_context and not positive_context_hit:
         return None
 
-    if _has_context(rule.negative_context, scope):
+    if _has_context(rule.negative_context, scope) and not (
+        rule.pii_type == "AGE" and _has_local_age_patient_context(text, start, end)
+    ):
         return None
 
     metadata: dict[str, object] = _build_metadata(rule.pii_type, normalized_value)
@@ -544,6 +686,26 @@ def find_numeric_pii(
     text: str,
     rules: Sequence[NumericPIIRule] | None = None,
 ) -> tuple[NumericPIIMatch, ...]:
+    raw_candidates: tuple[NumericPIIMatch, ...] = collect_numeric_pii_candidates(text, rules=rules)
+    candidates_with_priorities: list[tuple[NumericPIIMatch, int]] = [
+        (candidate, _priority_from_match(candidate)) for candidate in raw_candidates
+    ]
+    return _resolve_overlaps(candidates_with_priorities)
+
+
+def _priority_from_match(match: NumericPIIMatch) -> int:
+    priority_value: object | None = match.metadata.get("priority")
+    if isinstance(priority_value, int):
+        return priority_value
+    if isinstance(priority_value, str) and priority_value.isdigit():
+        return int(priority_value)
+    return 50
+
+
+def collect_numeric_pii_candidates(
+    text: str,
+    rules: Sequence[NumericPIIRule] | None = None,
+) -> tuple[NumericPIIMatch, ...]:
     active_rules: Sequence[NumericPIIRule] = _DEFAULT_NUMERIC_RULES if rules is None else rules
     candidates: list[tuple[NumericPIIMatch, int]] = []
     for rule in active_rules:
@@ -555,7 +717,8 @@ def find_numeric_pii(
             )
             if candidate is not None:
                 candidates.append(candidate)
-    return _resolve_overlaps(candidates)
+    raw_candidates: list[NumericPIIMatch] = [candidate for candidate, _priority in candidates]
+    return tuple(sorted(raw_candidates, key=lambda item: (item.start, item.end, item.pii_type)))
 
 
 def _mask_matches(

@@ -1,5 +1,5 @@
 from anonmed.ml.core.types import AnnotationSet
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.metrics.utils import coverage_percent
 
@@ -19,3 +19,6 @@ class CoveragePercentMetric(Metric):
             "coverage_percent": coverage,
             "over_coverage_percent": over_coverage,
         }
+
+
+__all__: list[str] = ["CoveragePercentMetric"]

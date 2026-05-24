@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from anonmed.ml.datasets.base import Dataset
+from anonmed.ml.data.base import Dataset
 from anonmed.ml.core.types import AnnotationSet
 
 
@@ -36,3 +36,6 @@ class Metric(ABC):
                 "predictions and dataset size mismatch: "
                 f"len(predictions)={len(predictions)} != len(dataset.cases)={len(dataset.cases)}"
             )
+
+
+__all__: list[str] = ["Metric"]
