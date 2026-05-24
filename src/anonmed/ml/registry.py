@@ -104,7 +104,6 @@ def _build_metric_from_class(config: MetricConfig, metric_class: MetricType) -> 
         ) from error
 
 
-
 def _build_russian_pii_dataset(config: DatasetConfig) -> Dataset:
     from anonmed.ml.data.russian_pii_66k import RussianPIIDataset
 
@@ -127,10 +126,11 @@ def _metric_builder(metric_class: MetricType) -> MetricBuilder:
 
     return build
 
-def _build_coverage_percent(config: MetricConfig) -> Metric:
-    _reject_params(config.id, config.params)
-    return CoveragePercentMetric()
 
+def _build_gliner2_model(config: ModelConfig) -> PIIModel:
+    from anonmed.ml.models.GLiNER2 import GLiNER2Model
+
+    return GLiNER2Model(**dict(config.params))
 
 DATASET_BUILDERS = {
     "example": _build_example_dataset,
