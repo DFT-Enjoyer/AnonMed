@@ -4,6 +4,11 @@ from dataclasses import dataclass, replace
 from typing import Final, Literal, Mapping, Sequence
 
 from anonmed.anonymization.numeric_pii import NumericPIIMatch, NumericPIIType
+from anonmed.anonymization.restoration import (
+    RestoredTextResult,
+    patch_text,
+    restore_safe_original_text,
+)
 from anonmed.preprocessing.asr.alignment import SourceSpan, TextAlignment
 
 PostProcessingMode = Literal["balanced", "conservative", "production_safe"]
@@ -141,6 +146,8 @@ class PostProcessingResult:
     entity_groups: tuple[PostProcessedEntityGroup, ...]
     masked_normalized_text: str
     masked_original_text: str
+    restored_safe_text: str
+    restoration_result: RestoredTextResult
     audit: Mapping[str, object]
 
 
@@ -205,28 +212,6 @@ def resolve_pii_candidates(
     return tuple(sorted(selected_candidates, key=lambda item: (item.start, item.end)))
 
 
-def patch_text(
-    text: str,
-    mentions: Sequence[PostProcessedPIIMention],
-    *,
-    layer: Literal["original", "normalized"] = "original",
-) -> str:
-    parts: list[str] = []
-    cursor: int = 0
-    sorted_mentions: list[PostProcessedPIIMention] = sorted(
-        mentions,
-        key=lambda item: _mention_span(item, layer),
-    )
-    for mention in sorted_mentions:
-        start, end = _mention_span(mention, layer)
-        if start < cursor or start >= end:
-            continue
-        parts.append(text[cursor:start])
-        parts.append(mention.replacement)
-        cursor = end
-    parts.append(text[cursor:])
-    return "".join(parts)
-
 
 def run_numeric_post_processing(
     *,
@@ -268,17 +253,15 @@ def run_numeric_post_processing(
         masking_strategy=masking_strategy,
     )
     grouped_mentions, entity_groups = _assign_entity_groups(resolved_mentions)
-    masked_original_text: str = patch_text(
-        original_text,
-        grouped_mentions,
-        layer="original",
+    restoration_result: RestoredTextResult = restore_safe_original_text(
+        original_text=original_text,
+        normalized_text=normalized_text,
+        mentions=grouped_mentions,
     )
-    masked_normalized_text: str = patch_text(
-        normalized_text,
-        grouped_mentions,
-        layer="normalized",
-    )
+    masked_original_text: str = restoration_result.masked_original_text
+    masked_normalized_text: str = restoration_result.masked_normalized_text
 
+    restoration_is_safe: bool = restoration_result.is_safe and projection_failures == 0
     audit: dict[str, object] = {
         "candidate_count": len(candidates),
         "selected_candidate_count": len(selected_candidates),
@@ -287,6 +270,8 @@ def run_numeric_post_processing(
         "final_mention_count": len(grouped_mentions),
         "entity_group_count": len(entity_groups),
         "overlap_resolution_mode": mode,
+        "restoration": dict(restoration_result.audit),
+        "restoration_is_safe": restoration_is_safe,
     }
     return PostProcessingResult(
         mode=mode,
@@ -297,6 +282,8 @@ def run_numeric_post_processing(
         entity_groups=entity_groups,
         masked_normalized_text=masked_normalized_text,
         masked_original_text=masked_original_text,
+        restored_safe_text=restoration_result.safe_text,
+        restoration_result=restoration_result,
         audit=audit,
     )
 
@@ -601,10 +588,3 @@ def _replacement_for_span(
     return f"[{entity_type}]"
 
 
-def _mention_span(
-    mention: PostProcessedPIIMention,
-    layer: Literal["original", "normalized"],
-) -> tuple[int, int]:
-    if layer == "original":
-        return mention.original_start, mention.original_end
-    return mention.normalized_start, mention.normalized_end

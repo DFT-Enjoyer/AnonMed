@@ -20,6 +20,11 @@ from anonmed.anonymization.post_processing import (
     resolve_pii_candidates,
     run_numeric_post_processing,
 )
+from anonmed.anonymization.restoration import (
+    OriginalTextRestorer,
+    RestoredTextResult,
+    restore_safe_original_text,
+)
 from anonmed.anonymization.pipeline import (
     AlignedNumericPIIMatch,
     NumericPIIPipelineResult,
@@ -33,6 +38,9 @@ __all__: list[str] = [
     "NumericPIIRule",
     "NumericPIIType",
     "NumericPIIPipelineResult",
+    "OriginalTextRestorer",
+    "RestoredTextResult",
+    "restore_safe_original_text",
     "PIICandidate",
     "PostProcessedEntityGroup",
     "PostProcessedPIIMention",
@@ -47,3 +55,4 @@ __all__: list[str] = [
     "run_numeric_post_processing",
     "run_numeric_pii_pipeline",
 ]
+
