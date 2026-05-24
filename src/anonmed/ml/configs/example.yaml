@@ -43,8 +43,8 @@ evaluation:
   enabled: true
 
 outputs:
-  # Directory where artifacts (report, dataset snapshots) will be saved.
-  artifacts_dir: "artifacts"
+  # Directory where reports and dataset snapshots will be saved.
+  instance_dir: "instance"
   # Filename for the evaluation report (JSON).
   report_filename: "report.json"
   # Whether to write a human-readable JSON snapshot of the whole dataset.

@@ -42,7 +42,15 @@
 
 Для запуска нужно написать добавить скрипт пайплайна в папку `pipelines` и создать в папке `configs` новый конфигурационный файл, в котором указан ключ билдера нужного класса (ключ находится в файле `registry.py`). Пример со структурой конфига приведён в `configs/example.yaml`, пример со скриптом пайплайна приведён в `pipelines/example.py`. 
 
-Пайплайн `example.py` запускается командой `python -m anonmed.ml.pipelines.run_evaluation configs/example.yaml` из папки `ml`.
+Пайплайн `example.py` запускается командой `python3 -m anonmed.ml.pipelines.example src/anonmed/ml/configs/example.yaml` из корня проекта.
+
+Результаты запуска сохраняются в отдельную директорию внутри `outputs.instance_dir`:
+
+```text
+instance/<run.name>/<YYYY-MM-DD_HH-MM-SS_microseconds>/
+```
+
+Например, для `run.name: example` отчёт и snapshot будут лежать в `instance/example/.../report.json` и `instance/example/.../dataset_snapshot.json`.
 
 
 ## Детали

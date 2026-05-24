@@ -274,12 +274,18 @@ uvicorn anonmed.api:create_app --factory
 - `hard`: строгое сопоставление на уровне упоминаний по типу и каноническому значению;
 - `soft`: дедуплицированное и более мягкое сопоставление для фрагментированных числовых сущностей внутри одной записи.
 
-### Артефакты
+### Instance-файлы
 
-Каждый запуск создаёт директорию:
+Скрипт оценки каждый запуск создаёт директорию:
 
 ```text
-artifacts/YYYY-MM-DD/HH-MM-SS/
+instance/YYYY-MM-DD/HH-MM-SS/
+```
+
+ML-пайплайны создают директорию запуска с именем run и timestamp:
+
+```text
+instance/<run.name>/<YYYY-MM-DD_HH-MM-SS_microseconds>/
 ```
 
 Внутри неё:
@@ -297,10 +303,10 @@ artifacts/YYYY-MM-DD/HH-MM-SS/
 - `masked_text`
 - найденные моделью совпадения с типом, фрагментом, исходным значением и каноническим значением.
 
-Корневую директорию для артефактов можно переопределить:
+Корневую директорию `instance` можно переопределить:
 
 ```bash
-.venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl --artifacts-root artifacts
+.venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl --instance-root instance
 ```
 
 ## Проектные замечания
@@ -326,11 +332,14 @@ artifacts/YYYY-MM-DD/HH-MM-SS/
 
 1. Запустить препроцессинг и проверить `normalized_text`.
 2. Запустить `run_numeric_pii_pipeline(...)` на том же тексте.
-3. При оценке на датасете сначала посмотреть `artifacts/.../dataset_after_preprocessing.jsonl`.
-4. Затем посмотреть `artifacts/.../dataset_after_model.jsonl`, чтобы понять, что именно было найдено и замаскировано.
+3. При оценке на датасете сначала посмотреть `instance/.../dataset_after_preprocessing.jsonl`.
+4. Затем посмотреть `instance/.../dataset_after_model.jsonl`, чтобы понять, что именно было найдено и замаскировано.
 
 Обычно это позволяет быстро определить, где возникла ошибка: на этапе нормализации проговорённых чисел или в самих правилах поиска числовых ПДн.
 
 ## Ссылка на датасеты
 
 https://disk.360.yandex.ru/d/m4rh5c9qIxh3rg
+
+## Для запуска тестиков
+`python3 -m anonmed.ml.pipelines.example src/anonmed/ml/configs/example.yaml`

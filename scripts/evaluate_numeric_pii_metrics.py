@@ -735,7 +735,7 @@ def build_report(evaluations: list[EvaluatedRecord], soft_gap: int) -> dict[str,
     }
 
 
-def build_artifact_dir(base_dir: Path) -> Path:
+def build_instance_dir(base_dir: Path) -> Path:
     timestamp: datetime = datetime.now()
     date_dir: Path = base_dir / timestamp.strftime("%Y-%m-%d")
     run_dir: Path = date_dir / timestamp.strftime("%H-%M-%S")
@@ -750,8 +750,8 @@ def write_jsonl(path: Path, rows: Iterable[dict[str, object]]) -> None:
             handle.write("\n")
 
 
-def write_artifacts(
-    artifact_dir: Path,
+def write_instance_files(
+    instance_dir: Path,
     dataset_path: Path,
     evaluations: list[EvaluatedRecord],
     report: dict[str, object],
@@ -799,8 +799,8 @@ def write_artifacts(
             }
         )
 
-    write_jsonl(artifact_dir / "dataset_after_preprocessing.jsonl", preprocessed_rows)
-    write_jsonl(artifact_dir / "dataset_after_model.jsonl", model_rows)
+    write_jsonl(instance_dir / "dataset_after_preprocessing.jsonl", preprocessed_rows)
+    write_jsonl(instance_dir / "dataset_after_model.jsonl", model_rows)
 
     metadata: dict[str, object] = {
         "dataset_path": str(dataset_path),
@@ -813,11 +813,11 @@ def write_artifacts(
             "metrics_report": "metrics.json",
         },
     }
-    (artifact_dir / "run_metadata.json").write_text(
+    (instance_dir / "run_metadata.json").write_text(
         json.dumps(metadata, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    (artifact_dir / "metrics.json").write_text(
+    (instance_dir / "metrics.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
@@ -849,9 +849,15 @@ def main() -> int:
         help="Print the report as JSON.",
     )
     parser.add_argument(
+        "--instance-root",
+        dest="instance_root",
+        default="instance",
+        help="Base directory for run files. A run directory is created as instance/YYYY-MM-DD/HH-MM-SS.",
+    )
+    parser.add_argument(
         "--artifacts-root",
-        default="artifacts",
-        help="Base directory for run artifacts. A run directory is created as artifacts/YYYY-MM-DD/HH-MM-SS.",
+        dest="instance_root",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--deduplicate-repetitions",
@@ -870,9 +876,9 @@ def main() -> int:
         deduplicate_repetitions=args.deduplicate_repetitions,
     )
     report = build_report(evaluations, soft_gap=args.soft_gap)
-    artifact_dir = build_artifact_dir(Path(args.artifacts_root))
-    write_artifacts(
-        artifact_dir,
+    instance_dir = build_instance_dir(Path(args.instance_root))
+    write_instance_files(
+        instance_dir,
         dataset_path,
         evaluations,
         report,
@@ -884,7 +890,7 @@ def main() -> int:
         return 0
 
     print(f"dataset: {dataset_path}")
-    print(f"artifacts: {artifact_dir}")
+    print(f"instance: {instance_dir}")
     print(f"records: {report['records']}")
     print(f"deduplicate repetitions: {args.deduplicate_repetitions}")
     print(
