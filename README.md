@@ -1,36 +1,34 @@
 # AnonMed
 
-`AnonMed` — Python-проект для детерминированного препроцессинга шумного русского ASR-текста и последующего rule-based поиска числовых персональных данных в нормализованном тексте.
+`AnonMed` - Python-пакет для анонимизации медицинских ASR-текстов на русском языке.
 
-Кодовая база намеренно разделена на два слоя:
+Главный пользовательский вход сейчас:
 
-- `anonmed.preprocessing`: очистка ASR-текста и числовая нормализация;
-- `anonmed.anonymization`: поиск и маскирование числовых персональных данных.
+```python
+from anonmed import PIIAnonymizer, anonymize_pii
+```
 
-Такое разделение позволяет держать очистку входного текста независимой от логики анонимизации и оставляет возможность для дальнейшего добавления модельных пайплайнов.
+Проект умеет прогонять текст через полный пайплайн:
 
-## Что делает проект
+```text
+исходный текст
+-> preprocessing
+-> rule-based detection
+-> ML detection
+-> merge / resolve candidates
+-> postprocessing
+-> masking / restore original text
+-> результат
+```
 
-### Слой препроцессинга
+При этом каждый слой можно импортировать и использовать отдельно.
 
-Пайплайн препроцессинга рассчитан на шумные русскоязычные ASR-транскрипты. Он:
+## Что Анонимизируется
 
-- удаляет речевые сбои, междометия и слова-паразиты;
-- удаляет пунктуацию, сохраняя защищённые разделители;
-- сохраняет пунктуацию внутри числовых паттернов, доменов, URL и email;
-- нормализует проговорённые числа в письменную цифровую форму;
-- возвращает аудиторскую информацию об удалённых и защищённых фрагментах.
+Основной сценарий - медицинские диалоги и диктовки после ASR, где персональные данные могут быть
+записаны словами, с повторами, без пунктуации или с ошибками распознавания.
 
-Типичные примеры:
-
-- `телефон восемь девять один три один два три четыре пять шесть семь` -> `телефон 89131234567`
-- `справка мсэ номер ноль восемь семь четыре два три дробь две тысячи двадцать один` -> `справка мсэ номер 087423 дробь 2021`
-
-### Слой анонимизации
-
-Слой анонимизации работает поверх нормализованного текста и находит числовые персональные данные с использованием контекстных правил.
-
-Сейчас поддерживаются следующие типы числовых сущностей:
+Поддерживаемые rule-based числовые типы:
 
 - `PHONE`
 - `SNILS`
@@ -43,43 +41,381 @@
 - `BIRTH_CERTIFICATE`
 - `DRIVER_LICENSE`
 
-Этот слой умеет:
+ML-слой может добавлять нечисловые сущности, например `PER`, `ADDRESS`, `EMAIL`, если выбранная
+модель их возвращает. Текущие зарегистрированные модели находятся в `anonmed.ml.registry`; среди
+них есть `natasha_per`, `GLiNER2`, `Qwen06B` и тестовая `example`.
 
-- возвращать структурированные совпадения;
-- нормализовать найденные значения к каноническому виду;
-- маскировать найденные фрагменты в тексте;
-- запускаться как полный end-to-end пайплайн вместе с препроцессингом.
+## Быстрый Старт
 
-## Структура пакета
+```python
+from anonmed import PIIAnonymizer
 
-```text
-src/
-  anonmed/
-    __init__.py
-    api.py
-    cli.py
-    anonymization/
-      __init__.py
-      numeric_pii.py
-      pipeline.py
-    preprocessing/
-      __init__.py
-      asr/
-        __init__.py
-        confidence.py
-        disfluency.py
-        fuzzy_matching.py
-        number_extractor.py
-        number_parser.py
-        numeric_lexicon.py
-        pipeline.py
-        punctuation.py
-        repetition.py
-        tokenization.py
-        types.py
+anonymizer = PIIAnonymizer()
 
-scripts/
-  evaluate_numeric_pii_metrics.py
+result = anonymizer(
+    "ну, телефон: восемь девять один три один два три четыре пять шесть семь!"
+)
+
+print(result.preprocessed_text)
+# телефон 89131234567
+
+print(result.masked_text)
+# ну, телефон: [PHONE]!
+```
+
+`PIIAnonymizer()` без ML-модели запускает preprocessing, rule-based detection и postprocessing.
+ML не загружается и тяжёлые ML-зависимости не импортируются.
+
+## Одноразовый Запуск
+
+Для простого разового вызова есть convenience-функция:
+
+```python
+from anonmed import anonymize_pii
+
+result = anonymize_pii(
+    "паспорт серия сорок пять одиннадцать номер семьсот восемьдесят девять триста двадцать четыре",
+    use_ml=False,
+)
+
+print(result.masked_text)
+# паспорт серия [PASSPORT]
+```
+
+Для сервиса, батчей и частых вызовов лучше создавать `PIIAnonymizer` один раз: объект кеширует
+ресурсы и лениво инициализирует модель.
+
+## Настройка Пайплайна
+
+Все настройки конкретного запуска можно передавать простыми keyword-аргументами:
+
+```python
+from anonmed import PIIAnonymizer
+
+anonymizer = PIIAnonymizer(ml_model="natasha_per")
+
+result = anonymizer(
+    text,
+    use_preprocessing=True,
+    use_rules=True,
+    use_ml=True,
+    use_postprocessing=True,
+    remove_punctuation=False,
+    normalize_numbers=True,
+    normalize_contacts=True,
+    normalize_dates=True,
+    pii_types=("PHONE", "SNILS", "PASSPORT", "OMS"),
+    ml_labels=("PER",),
+    masking_strategy="type",
+)
+```
+
+`None` означает "не переопределять дефолт". Например, `use_ml=None` берёт значение из
+конфига, а `use_ml=False` явно выключает ML.
+
+Приоритет настроек:
+
+1. Встроенные defaults.
+2. `default_config` из `PIIAnonymizer(...)`.
+3. `config` в конкретном вызове.
+4. Явные keyword-аргументы или `flags` в конкретном вызове.
+
+Последний уровень всегда сильнее предыдущих.
+
+## Advanced Config API
+
+Для воспроизводимых запусков, тестов, CLI и серверного режима можно использовать typed configs:
+
+```python
+from anonmed import (
+    MLDetectionConfig,
+    PIIAnonymizer,
+    PIIAnonymizerConfig,
+    PostProcessingConfig,
+    PreprocessingConfig,
+    RuleDetectionConfig,
+)
+
+config = PIIAnonymizerConfig(
+    preprocessing=PreprocessingConfig(
+        enabled=True,
+        remove_punctuation=False,
+        normalize_numbers=True,
+        normalize_contacts=True,
+    ),
+    rules=RuleDetectionConfig(
+        enabled=True,
+        pii_types=("PHONE", "SNILS", "PASSPORT"),
+    ),
+    ml=MLDetectionConfig(
+        enabled=False,
+        labels=("PER", "ADDRESS", "EMAIL"),
+    ),
+    postprocessing=PostProcessingConfig(
+        enabled=True,
+        restore_non_pii=True,
+        masking_strategy="type",
+    ),
+)
+
+anonymizer = PIIAnonymizer(default_config=config)
+result = anonymizer(text)
+```
+
+Внутри каждый запуск приводится к `ResolvedPIIAnonymizerConfig`, поэтому логика defaults не
+размазана по этапам.
+
+## Результат
+
+`PIIAnonymizer` возвращает не строку, а структурированный `PIIAnonymizationResult`:
+
+```python
+result.original_text
+result.preprocessed_text
+result.masked_text
+result.masked_preprocessed_text
+result.masked_original_text
+
+result.candidates
+result.rule_candidates
+result.ml_candidates
+
+result.postprocessed_mentions
+result.entity_groups
+
+result.preprocessing_result
+result.postprocessing_result
+result.config
+result.warnings
+```
+
+Для JSON-подобного вывода:
+
+```python
+payload = result.to_dict(include_debug=True)
+```
+
+## Вызов Отдельных Этапов
+
+Фасад можно использовать не только end-to-end:
+
+```python
+from anonmed import PIIAnonymizer
+
+anonymizer = PIIAnonymizer(ml_model="natasha_per")
+
+preprocessed = anonymizer.preprocess(
+    text,
+    remove_punctuation=False,
+    normalize_numbers=True,
+)
+
+rule_candidates = anonymizer.detect_by_rules(
+    preprocessed.normalized_text,
+    pii_types=("PHONE", "SNILS", "PASSPORT"),
+)
+
+ml_candidates = anonymizer.detect_by_ml(
+    preprocessed.normalized_text,
+    labels=("PER",),
+)
+
+merged = anonymizer.merge_candidates(
+    preprocessed.normalized_text,
+    rule_candidates + ml_candidates,
+)
+
+postprocessed = anonymizer.postprocess(
+    original_text=text,
+    preprocessed_text=preprocessed.normalized_text,
+    candidates=merged,
+    preprocessing_result=preprocessed,
+)
+
+print(postprocessed.masked_original_text)
+```
+
+Это полезно для отладки: можно понять, где именно потерялась сущность - в preprocessing, правилах,
+ML, merge или postprocessing.
+
+## Ленивые Импорты И Ресурсы
+
+`PIIAnonymizer` устроен так, чтобы не импортировать тяжёлые компоненты раньше времени:
+
+- preprocessing-компоненты создаются при первом включённом preprocessing;
+- rule-based detector импортируется при первом `detect_by_rules`;
+- ML runner и модель создаются только при первом `detect_by_ml` или `__call__` с `use_ml=True`;
+- postprocessing вызывается только при включённом этапе.
+
+Пример: этот код не должен загружать ML runner:
+
+```python
+from anonmed import PIIAnonymizer
+
+anonymizer = PIIAnonymizer(ml_model="Qwen06B")
+result = anonymizer("телефон 89131234567", use_ml=False)
+```
+
+## CLI
+
+После установки доступны две команды:
+
+```bash
+anonmed "ну, телефон: восемь девять один три один два три четыре пять шесть семь!" --anonymize --no-ml
+anonmed-preprocess "ну, номер один два три" --run
+```
+
+`anonmed-preprocess` оставлен для совместимости; фактически оба entrypoint ведут в
+`anonmed.cli:main`.
+
+Основные режимы:
+
+- режим по умолчанию: вывести извлечённые числовые фрагменты в JSON;
+- `--replace`: заменить только числовые фрагменты;
+- `--clean`: удалить только речевые сбои и междометия;
+- `--punctuation-clean`: удалить только пунктуацию;
+- `--run`: запустить preprocessing и вывести нормализованный текст;
+- `--run-json`: запустить preprocessing и вывести структурированный JSON;
+- `--anonymize`: запустить новый PII anonymization pipeline и вывести `masked_text`;
+- `--anonymize-json`: вывести структурированный результат анонимизации.
+
+Полезные флаги анонимизации:
+
+```bash
+anonmed "..." --anonymize --ml-model natasha_per --use-ml
+anonmed "..." --anonymize --no-ml --pii-types PHONE,SNILS,OMS
+anonmed "..." --anonymize --keep-punctuation --masking-strategy same_length
+anonmed "..." --anonymize-json --post-processing-mode production_safe
+```
+
+## Модули И Импорты
+
+Можно импортировать как верхнеуровневый фасад, так и отдельные модули.
+
+### `anonmed`
+
+Удобный публичный вход:
+
+```python
+from anonmed import PIIAnonymizer, anonymize_pii
+from anonmed import PreprocessingConfig, RuleDetectionConfig, MLDetectionConfig
+from anonmed import PostProcessingConfig, PIIAnonymizerConfig
+```
+
+Также отсюда лениво экспортируются основные типы preprocessing, anonymization и numeric PII.
+
+### `anonmed.anonymizer`
+
+Главный фасад нового API:
+
+- `PIIAnonymizer`
+- `anonymize_pii`
+- `anonymize`
+- config dataclasses
+- resolved config dataclasses
+- `PIIAnonymizationResult`
+
+Используйте этот модуль для пользовательского end-to-end API.
+
+### `anonmed.preprocessing`
+
+ASR preprocessing:
+
+- удаление дисфлюенций и filler-слов;
+- удаление пунктуации с защитой email/domain/URL и числовых паттернов;
+- нормализация проговорённых чисел;
+- нормализация документных номеров, дат рождения и контактов;
+- дедупликация повторяющихся ASR-реплик;
+- alignment между исходным и нормализованным текстом.
+
+Пример:
+
+```python
+from anonmed.preprocessing import run_asr_normalization
+
+result = run_asr_normalization("ну, номер один два три")
+print(result.normalized_text)
+# номер 123
+```
+
+### `anonmed.anonymization`
+
+Низкоуровневая rule-based анонимизация и postprocessing:
+
+- `collect_numeric_pii_candidates`
+- `find_numeric_pii`
+- `mask_numeric_pii`
+- `resolve_pii_candidates`
+- `run_pii_post_processing`
+- `run_numeric_pii_pipeline`
+- `PIICandidate`
+- `PostProcessingResult`
+
+Этот слой полезен, если нужен прямой доступ к numeric rules или к механике разрешения пересечений.
+
+Пример:
+
+```python
+from anonmed.anonymization import find_numeric_pii
+
+matches = find_numeric_pii("телефон 89131234567")
+print(matches[0].pii_type)
+# PHONE
+```
+
+### `anonmed.ml`
+
+ML primitives, registry, datasets, metrics and runners:
+
+- `PIIModel`
+- `TextDocument`, `AnnotationSet`, `Span`
+- `ModelRunner`
+- `ModelRunnerResult`
+- `build_model`
+- evaluation metrics and dataset helpers
+
+`ModelRunner` теперь умеет возвращать не только masked string, но и структурный результат:
+
+```python
+from anonmed.ml.pipelines.runner import ModelRunner
+
+runner = ModelRunner(model="natasha_per")
+result = runner.run("Пациент Иванов Иван Иванович пришел.")
+
+print(result.masked_text)
+print(result.spans)
+print(result.annotation)
+```
+
+Старое поведение сохранено:
+
+```python
+masked_text = runner("Пациент Иванов Иван Иванович пришел.")
+```
+
+### `anonmed.api`
+
+HTTP API на FastAPI. Сейчас покрывает preprocessing endpoints:
+
+- `/v1/asr-integer/parse`
+- `/v1/asr-integer/punctuation-clean`
+- `/v1/asr-integer/run`
+- `/v1/preprocessing/asr/parse`
+- `/v1/preprocessing/asr/punctuation-clean`
+- `/v1/preprocessing/asr/run`
+
+Запуск:
+
+```bash
+uvicorn anonmed.api:create_app --factory
+```
+
+### `anonmed.cli`
+
+CLI entrypoint для preprocessing и anonymization:
+
+```bash
+python -m anonmed.cli "телефон 89131234567" --anonymize --no-ml
 ```
 
 ## Установка
@@ -90,171 +426,27 @@ scripts/
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
-pytest -q
+.venv/bin/python -m pytest
 ```
 
-Для использования API:
+Для HTTP API:
 
 ```bash
 pip install -e .[api]
 ```
 
-## Основные публичные API
-
-### 1. Запуск только препроцессинга
-
-```python
-from anonmed.preprocessing import run_asr_normalization
-
-result = run_asr_normalization(
-    "ну, эм, телефон восемь девять один три один два три четыре пять шесть семь"
-)
-
-print(result.cleaned_text)
-# телефон восемь девять один три один два три четыре пять шесть семь
-
-print(result.normalized_text)
-# телефон 89131234567
-```
-
-Возвращаемый объект содержит:
-
-- `original_text`
-- `disfluency_cleaned_text`
-- `punctuation_cleaned_text`
-- `cleaned_text`
-- `normalized_text`
-- `removed_spans`
-- `punctuation_removed_spans`
-- `punctuation_protected_spans`
-- `integer_spans`
-
-### 2. Дедупликация повторяющихся ASR-реплик
-
-```python
-from anonmed.preprocessing import ASRUtterance, deduplicate_asr_utterances
-
-result = deduplicate_asr_utterances(
-    [
-        ASRUtterance("адрес семь", start=0.0, end=1.2),
-        ASRUtterance(
-            "адрес семь квартира двенадцать",
-            start=1.4,
-            end=3.0,
-        ),
-    ]
-)
-
-print(result.raw_transcript)
-# адрес семь адрес семь квартира двенадцать
-
-print(result.clean_transcript)
-# адрес семь квартира двенадцать
-```
-
-Слой дедупликации повторов намеренно сделан консервативным:
-
-- он сохраняет исходную транскрипцию и отдельно формирует очищенную транскрипцию;
-- он сравнивает только локальные кандидатные реплики с учётом времени и расстояния между репликами;
-- он работает без меток говорящих, но может использовать необязательные поля `speaker`, `start`, `end` и `confidence`, если они доступны;
-- он защищает вероятные семантические изменения, например изменение чисел или смену отрицания, если только новая реплика не содержит явного маркера исправления.
-
-### 3. Запуск поиска числовых ПДн по нормализованному тексту
-
-```python
-from anonmed.anonymization import find_numeric_pii, mask_numeric_pii
-from anonmed.preprocessing import run_asr_normalization
-
-result = run_asr_normalization(
-    "телефон восемь девять один три один два три четыре пять шесть семь"
-)
-matches = find_numeric_pii(result.normalized_text)
-
-print(matches[0].pii_type)
-# PHONE
-
-print(matches[0].normalized_value)
-# +79131234567
-
-print(mask_numeric_pii(result.normalized_text))
-# телефон [PHONE]
-```
-
-### 4. Запуск полного end-to-end пайплайна
-
-```python
-from anonmed.anonymization import run_numeric_pii_pipeline
-
-result = run_numeric_pii_pipeline(
-    "паспорт серия сорок пять одиннадцать семьсот восемьдесят девять "
-    "триста двадцать четыре"
-)
-
-print(result.preprocessing_result.normalized_text)
-# паспорт серия 4511789324
-
-print(result.masked_text)
-# паспорт серия [PASSPORT]
-```
-
-Возвращаемый объект содержит:
-
-- `original_text`
-- `preprocessing_result`
-- `matches`
-- `masked_text`
-
-## CLI
-
-После установки в editable-режиме можно использовать:
+Для ML-компонентов:
 
 ```bash
-anonmed-preprocess "ну эм номер один два" --run
-python -m anonmed.cli "ну эм номер один два" --run
+pip install -e .[ml]
 ```
 
-Поддерживаемые режимы CLI:
+Некоторые модели могут требовать дополнительные пакеты или локально доступные веса. Например,
+`Qwen06B` использует `transformers` и модель `Qwen/Qwen3-0.6B`.
 
-- режим по умолчанию: вывести извлечённые числовые фрагменты в JSON;
-- `--replace`: заменить только числовые фрагменты;
-- `--clean`: удалить только речевые сбои и междометия;
-- `--punctuation-clean`: удалить только пунктуацию;
-- `--run`: запустить полный пайплайн препроцессинга и вывести нормализованный текст;
-- `--run-json`: запустить полный пайплайн препроцессинга и вывести структурированный JSON;
-- `--keep-punctuation`: отключить удаление пунктуации в режимах `--run` и `--run-json`.
+## Скрипт Оценки
 
-Примеры:
-
-```bash
-anonmed-preprocess "ну, эм, номер один два три" --run
-# номер 123
-
-anonmed-preprocess "сайт test.com, код один два" --punctuation-clean
-# сайт test.com код один два
-```
-
-## HTTP API
-
-Запуск API:
-
-```bash
-uvicorn anonmed.api:create_app --factory
-```
-
-Текущий HTTP API предоставляет эндпоинты препроцессинга:
-
-- `/v1/asr-integer/parse`
-- `/v1/asr-integer/punctuation-clean`
-- `/v1/asr-integer/run`
-- `/v1/preprocessing/asr/parse`
-- `/v1/preprocessing/asr/punctuation-clean`
-- `/v1/preprocessing/asr/run`
-
-На данный момент HTTP API покрывает препроцессинг и извлечение числовых фрагментов на этом слое. Анонимизация числовых ПДн сейчас доступна через Python API и скрипты, но не вынесена в отдельные HTTP-эндпоинты.
-
-## Скрипт оценки
-
-В репозитории есть скрипт оценки качества поиска числовых ПДн на JSONL-датасетах:
+Для оценки numeric PII на JSONL-датасетах:
 
 ```bash
 .venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl
@@ -263,83 +455,41 @@ uvicorn anonmed.api:create_app --factory
 
 Скрипт:
 
-- запускает полный пайплайн `text -> preprocessing -> numeric PII`;
-- оценивает только числовые типы персональных данных;
+- запускает полный numeric pipeline;
 - считает `precision`, `recall`, `f1`, `accuracy`;
-- считает `hard` и `soft` метрики;
-- отдельно оценивает `hard_negatives`.
+- считает hard и soft метрики;
+- отдельно оценивает `hard_negatives`;
+- пишет instance-файлы с промежуточными результатами.
 
-### Hard и soft метрики
+## Проектные Замечания
 
-- `hard`: строгое сопоставление на уровне упоминаний по типу и каноническому значению;
-- `soft`: дедуплицированное и более мягкое сопоставление для фрагментированных числовых сущностей внутри одной записи.
+- Публичные LLM не используются в финальном пайплайне, чтобы не выносить персональные данные наружу.
+- Детерминированный preprocessing остаётся отдельным слоем, потому что качество numeric PII сильно
+  зависит от нормализации ASR.
+- Rule-based numeric PII остаётся интерпретируемым и хорошо отлаживаемым.
+- ML-часть подключается как дополнительный слой, прежде всего для нечисловых сущностей.
+- HTTP API пока не предоставляет отдельный endpoint анонимизации; новый anonymization pipeline
+  доступен через Python API и CLI.
 
-### Instance-файлы
+## Рекомендуемый Workflow Для Отладки
 
-Скрипт оценки каждый запуск создаёт директорию:
+1. Проверить `result.preprocessing_result.normalized_text`.
+2. Проверить `result.rule_candidates`.
+3. Если включён ML, проверить `result.ml_candidates`.
+4. Проверить `result.candidates` после merge.
+5. Проверить `result.postprocessed_mentions` и `result.masked_original_text`.
 
-```text
-instance/YYYY-MM-DD/HH-MM-SS/
-```
+Обычно этого достаточно, чтобы понять, на каком этапе возникла ошибка.
 
-ML-пайплайны создают директорию запуска с именем run и timestamp:
+## Тесты
 
-```text
-instance/<run.name>/<YYYY-MM-DD_HH-MM-SS_microseconds>/
-```
-
-Внутри неё:
-
-- `dataset_after_preprocessing.jsonl`
-- `dataset_after_model.jsonl`
-- `metrics.json`
-- `run_metadata.json`
-
-`dataset_after_preprocessing.jsonl` хранит исходный текст записи вместе с `preprocessed_text`.
-
-`dataset_after_model.jsonl` хранит:
-
-- `preprocessed_text`
-- `masked_text`
-- найденные моделью совпадения с типом, фрагментом, исходным значением и каноническим значением.
-
-Корневую директорию `instance` можно переопределить:
+В этом репозитории рабочий Python указан в `instructions.md`:
 
 ```bash
-.venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl --instance-root instance
+/Users/jafonoksy/PycharmProjects/AnonMed/.venv/bin/python -m pytest
+/Users/jafonoksy/PycharmProjects/AnonMed/.venv/bin/python -m ruff check src tests scripts/evaluate_numeric_pii_metrics.py
 ```
 
-## Проектные замечания
-
-Текущая реализация является детерминированной и rule-based. Это не универсальная русскоязычная ITN-система и не обученная NER-модель.
-
-Это сделано намеренно:
-
-- препроцессинг остаётся сфокусированным на очистке текста и числовой нормализации;
-- анонимизация остаётся сфокусированной на контекстном поиске числовых ПДн;
-- оценка может измерять качество всего пайплайна, при этом отдельные слои остаются интерпретируемыми.
-
-## Текущие ограничения
-
-- Качество поиска числовых ПДн зависит от качества препроцессинга. Если проговорённые числа нормализованы неправильно, нижележащий слой анонимизации их пропустит.
-- `DATE_BIRTH` остаётся самым сложным классом, потому что устные формы дат значительно разнообразнее обычных последовательностей цифр.
-- Некоторые документные идентификаторы всё ещё сильно зависят от контекста и могут требовать расширения лексического покрытия под новые ASR-стили.
-- HTTP API пока не предоставляет отдельный эндпоинт анонимизации.
-
-## Рекомендуемый рабочий процесс
-
-Для локальной отладки:
-
-1. Запустить препроцессинг и проверить `normalized_text`.
-2. Запустить `run_numeric_pii_pipeline(...)` на том же тексте.
-3. При оценке на датасете сначала посмотреть `instance/.../dataset_after_preprocessing.jsonl`.
-4. Затем посмотреть `instance/.../dataset_after_model.jsonl`, чтобы понять, что именно было найдено и замаскировано.
-
-Обычно это позволяет быстро определить, где возникла ошибка: на этапе нормализации проговорённых чисел или в самих правилах поиска числовых ПДн.
-
-## Ссылка на датасеты
+## Датасеты
 
 https://disk.360.yandex.ru/d/m4rh5c9qIxh3rg
-
-## Для запуска тестиков
-`python3 -m anonmed.ml.pipelines.example src/anonmed/ml/configs/example.yaml`
