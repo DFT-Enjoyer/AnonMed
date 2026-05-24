@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
-from typing import Iterable
+import re
+from dataclasses import asdict, dataclass
+from typing import Final, Iterable
 
 from anonmed.preprocessing.asr.fuzzy_matching import best_fuzzy_match
 from anonmed.preprocessing.asr.numeric_lexicon import (
@@ -24,6 +25,22 @@ from anonmed.preprocessing.asr.types import (
     NumericToken,
     Token,
 )
+
+
+_PHONE_SEPARATOR_PATTERN: Final[str] = r"[\s\u00A0\-–—().]*"
+_SPOKEN_PHONE_PLUS_RE: Final[re.Pattern[str]] = re.compile(
+    rf"\bплюс[\s\u00A0]+"
+    rf"(?=7{_PHONE_SEPARATOR_PATTERN}9(?:{_PHONE_SEPARATOR_PATTERN}\d){{9}}\b)",
+    flags=re.IGNORECASE | re.UNICODE,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class SpokenPhonePlusSpan:
+    start: int
+    end: int
+    raw: str
+    normalized: str
 
 
 class IntegerExtractor:
@@ -79,7 +96,8 @@ class IntegerExtractor:
     def replace(self, text: str) -> str:
         spans: list[IntegerSpan] = self.extract(text)
         replaced: str = replace_spans(text, spans)
-        return replaced
+        normalized: str = normalize_spoken_phone_plus(replaced)
+        return normalized
 
     def to_json(self, text: str, *, ensure_ascii: bool = False) -> str:
         spans: list[IntegerSpan] = self.extract(text)
@@ -248,6 +266,32 @@ def replace_spans(text: str, spans: Iterable[IntegerSpan]) -> str:
     return result
 
 
+def find_spoken_phone_plus_spans(text: str) -> list[SpokenPhonePlusSpan]:
+    spans: list[SpokenPhonePlusSpan] = []
+    for match in _SPOKEN_PHONE_PLUS_RE.finditer(text):
+        span = SpokenPhonePlusSpan(
+            start=match.start(),
+            end=match.end(),
+            raw=match.group(0),
+            normalized="+",
+        )
+        spans.append(span)
+    return spans
+
+
+def normalize_spoken_phone_plus(text: str) -> str:
+    spans: list[SpokenPhonePlusSpan] = find_spoken_phone_plus_spans(text)
+    pieces: list[str] = []
+    cursor: int = 0
+    for span in spans:
+        pieces.append(text[cursor : span.start])
+        pieces.append(span.normalized)
+        cursor = span.end
+    pieces.append(text[cursor:])
+    result: str = "".join(pieces)
+    return result
+
+
 def extract_integers(text: str, config: ExtractorConfig | None = None) -> list[IntegerSpan]:
     extractor = IntegerExtractor(config=config)
     spans: list[IntegerSpan] = extractor.extract(text)
@@ -262,7 +306,10 @@ def replace_integer_spans(text: str, config: ExtractorConfig | None = None) -> s
 
 __all__: list[str] = [
     "IntegerExtractor",
+    "SpokenPhonePlusSpan",
     "extract_integers",
+    "find_spoken_phone_plus_spans",
+    "normalize_spoken_phone_plus",
     "replace_integer_spans",
     "replace_spans",
 ]
