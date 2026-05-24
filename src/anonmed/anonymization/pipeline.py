@@ -3,8 +3,19 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Mapping
 
-from anonmed.anonymization.numeric_pii import NumericPIIMatch, NumericPIIType, find_numeric_pii
-from anonmed.preprocessing.asr.alignment import SourceSpan, TextAlignment
+from anonmed.anonymization.numeric_pii import (
+    NumericPIIMatch,
+    NumericPIIType,
+    collect_numeric_pii_candidates,
+)
+from anonmed.anonymization.post_processing import (
+    MaskingStrategy,
+    PostProcessedPIIMention,
+    PostProcessingMode,
+    PostProcessingResult,
+    run_numeric_post_processing,
+)
+from anonmed.preprocessing.asr.alignment import TextAlignment
 from anonmed.preprocessing import ASRNormalizationResult, run_asr_normalization
 
 
@@ -33,6 +44,7 @@ class NumericPIIPipelineResult:
     masked_normalized_text: str
     masked_original_text: str
     restored_safe_text: str
+    post_processing_result: PostProcessingResult
 
     @property
     def masked_text(self) -> str:
@@ -44,82 +56,96 @@ def run_numeric_pii_pipeline(
     replacement_by_type: Mapping[NumericPIIType, str] | None = None,
     deduplicate_repetitions: bool = False,
     normalize_document_numbers: bool = False,
+    post_processing_mode: PostProcessingMode = "production_safe",
+    masking_strategy: MaskingStrategy = "type",
 ) -> NumericPIIPipelineResult:
     preprocessing_result: ASRNormalizationResult = run_asr_normalization(
         text,
         deduplicate_repetitions=deduplicate_repetitions,
         normalize_document_numbers=normalize_document_numbers,
     )
-    normalized_matches: tuple[NumericPIIMatch, ...] = find_numeric_pii(
+    normalized_candidates: tuple[NumericPIIMatch, ...] = collect_numeric_pii_candidates(
         preprocessing_result.normalized_text
     )
     alignment: TextAlignment | None = preprocessing_result.normalized_to_original_alignment
     if alignment is None:
         raise ValueError("ASR normalization result has no normalized-to-original alignment")
 
-    matches: tuple[AlignedNumericPIIMatch, ...] = tuple(
-        _align_match(text, alignment, normalized_match)
-        for normalized_match in normalized_matches
+    post_processing_result: PostProcessingResult = run_numeric_post_processing(
+        original_text=text,
+        normalized_text=preprocessing_result.normalized_text,
+        alignment=alignment,
+        normalized_matches=normalized_candidates,
+        replacement_by_type=replacement_by_type,
+        mode=post_processing_mode,
+        masking_strategy=masking_strategy,
     )
-
-    replacements: Mapping[NumericPIIType, str] = replacement_by_type or {}
-    normalized_parts: list[str] = []
-    normalized_cursor: int = 0
-    for match in normalized_matches:
-        replacement: str = replacements.get(match.pii_type, f"[{match.pii_type}]")
-        normalized_parts.append(preprocessing_result.normalized_text[normalized_cursor:match.start])
-        normalized_parts.append(replacement)
-        normalized_cursor = match.end
-    normalized_parts.append(preprocessing_result.normalized_text[normalized_cursor:])
-    masked_normalized_text: str = "".join(normalized_parts)
-
-    original_parts: list[str] = []
-    original_cursor: int = 0
-    for match in matches:
-        replacement = replacements.get(match.pii_type, f"[{match.pii_type}]")
-        if match.start < original_cursor:
-            continue
-        original_parts.append(text[original_cursor:match.start])
-        original_parts.append(replacement)
-        original_cursor = match.end
-    original_parts.append(text[original_cursor:])
-    masked_original_text: str = "".join(original_parts)
+    normalized_matches: tuple[NumericPIIMatch, ...] = tuple(
+        _normalized_match_from_mention(mention) for mention in post_processing_result.mentions
+    )
+    matches: tuple[AlignedNumericPIIMatch, ...] = tuple(
+        _aligned_match_from_mention(mention) for mention in post_processing_result.mentions
+    )
 
     return NumericPIIPipelineResult(
         original_text=text,
         preprocessing_result=preprocessing_result,
         matches=matches,
         normalized_matches=normalized_matches,
-        masked_normalized_text=masked_normalized_text,
-        masked_original_text=masked_original_text,
-        restored_safe_text=masked_original_text,
+        masked_normalized_text=post_processing_result.masked_normalized_text,
+        masked_original_text=post_processing_result.masked_original_text,
+        restored_safe_text=post_processing_result.masked_original_text,
+        post_processing_result=post_processing_result,
     )
 
 
-def _align_match(
-    original_text: str,
-    alignment: TextAlignment,
-    normalized_match: NumericPIIMatch,
-) -> AlignedNumericPIIMatch:
-    source_span: SourceSpan = alignment.source_span_for_target_span(
-        normalized_match.start,
-        normalized_match.end,
+def _normalized_match_from_mention(mention: PostProcessedPIIMention) -> NumericPIIMatch:
+    source_match: NumericPIIMatch | None = mention.source_match
+    context: str = "" if source_match is None else source_match.context
+    metadata: dict[str, object] = dict(mention.metadata)
+    metadata["entity_id"] = mention.entity_id
+    metadata["mention_id"] = mention.mention_id
+    metadata["projection_status"] = mention.projection_status
+    return NumericPIIMatch(
+        pii_type=mention.entity_type,
+        start=mention.normalized_start,
+        end=mention.normalized_end,
+        value=mention.normalized_text,
+        normalized_value=mention.normalized_value,
+        confidence=mention.confidence,
+        rule_id=mention.rule_id,
+        context=context,
+        metadata=metadata,
     )
-    original_value: str = original_text[source_span.start:source_span.end]
+
+
+def _aligned_match_from_mention(mention: PostProcessedPIIMention) -> AlignedNumericPIIMatch:
+    normalized_match: NumericPIIMatch = _normalized_match_from_mention(mention)
+    original_value: str = mention.original_text
     return AlignedNumericPIIMatch(
-        pii_type=normalized_match.pii_type,
-        start=source_span.start,
-        end=source_span.end,
+        pii_type=mention.entity_type,
+        start=mention.original_start,
+        end=mention.original_end,
         value=original_value,
-        normalized_start=normalized_match.start,
-        normalized_end=normalized_match.end,
-        normalized_value=normalized_match.normalized_value,
-        confidence=normalized_match.confidence,
-        rule_id=normalized_match.rule_id,
+        normalized_start=mention.normalized_start,
+        normalized_end=mention.normalized_end,
+        normalized_value=mention.normalized_value,
+        confidence=mention.confidence,
+        rule_id=mention.rule_id,
         context=normalized_match.context,
-        metadata=normalized_match.metadata,
+        metadata=_metadata_with_original_span(mention),
         normalized_match=normalized_match,
     )
+
+
+def _metadata_with_original_span(mention: PostProcessedPIIMention) -> Mapping[str, object]:
+    metadata: dict[str, object] = dict(mention.metadata)
+    metadata["entity_id"] = mention.entity_id
+    metadata["mention_id"] = mention.mention_id
+    metadata["projection_status"] = mention.projection_status
+    metadata["original_span"] = (mention.original_start, mention.original_end)
+    metadata["normalized_span"] = (mention.normalized_start, mention.normalized_end)
+    return metadata
 
 
 __all__: list[str] = [
