@@ -1,0 +1,60 @@
+# Example pipeline configuration for AnonMed ML evaluation.
+# Save as configs/example.yaml (or any name), and run:
+#   python -m anonmed.ml.pipelines.run_evaluation configs/example.yaml
+
+run:
+  # Optional run name for logging/organization.
+  name: "Qwen3-0.6b_evaluation"
+
+dataset:
+  # Identifier registered in DATASET_BUILDERS (see registry.py).
+  id: "russian_pii_66k"
+  # Parameters passed to the dataset constructor (e.g., RussianPIIDataset).
+  params:
+    sample_size: 50        # number of examples to load
+    random_seed: 1543          # for reproducibility
+
+model:
+  # Identifier registered in MODEL_BUILDERS.
+  id: "Qwen06B"
+  # Parameters for the model (if any).
+  params: {}
+
+metrics:
+  # List of metrics to compute. Each can be a string (id only) or a mapping with params.
+  - id: "entity_hard_f1"
+    params: {}               # optional, specific to metric
+  - id: "entity_hard_precision"
+    params: {}
+  - id: "entity_hard_recall"
+    params: {}
+  - id: "entity_soft_f1"
+    params: {}               # optional, specific to metric
+  - id: "entity_soft_precision"
+    params: {}
+  - id: "entity_soft_recall"
+    params: {}
+  - id: "coverage_percent"
+    params: {}
+
+training:
+  # Whether to run training phase (if model implements TrainablePIIModel).
+  enabled: false
+  # Optional trainer identifier (e.g., "simple_trainer").
+  trainer: null
+  # Training hyperparameters (unused if enabled=false).
+  params: {}
+
+evaluation:
+  # Whether to run evaluation after training (or standalone).
+  enabled: true
+
+outputs:
+  # Directory where reports and dataset snapshots will be saved.
+  instance_dir: "instance"
+  # Filename for the evaluation report (JSON).
+  report_filename: "report.json"
+  # Whether to write a human-readable JSON snapshot of the whole dataset.
+  write_dataset_snapshot_json: true
+  # Whether to write a Parquet snapshot (more efficient for large data).
+  write_dataset_snapshot_parquet: false
