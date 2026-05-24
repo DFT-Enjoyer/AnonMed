@@ -24,9 +24,14 @@ pipeline.py - пайплаин для генерации.
 ## Запуск
 Сначала нужно выставить требуемые данные в scr_generate_llm_requests.py.
 
-Запускать командой python3 pipeline.py.
+1) Запускать командой python3 pipeline.py.
 
-Итоговые файлы - final_cleaned_subdialogs.jsonl, final_cleaned_subdialogs.txt. Логи pipeline.py выводятся в консоли.
+Итоговые файлы - final_cleaned_subdialogs.jsonl, final_cleaned_subdialogs.txt - файлы без символов перевода строки. Логи pipeline.py выводятся в консоли.
+
+2) Запускать командой python3 pipeline_with_newlines.py
+
+итоговые файлы: без переносов строк: final_without_newlines.jsonl и final_without_newlines.txt. С переносами строк: final_with_newlines.jsonl и final_with_newlines.txt. Последние используются в подсчете метрик.
+
 
 ## Пример генерируемых данных
 См. файлы example_generated.txt и example_generated.jsonl - соответственно куски диалогов и их размеченные версии.
