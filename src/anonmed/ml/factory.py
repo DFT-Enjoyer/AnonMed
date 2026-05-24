@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from anonmed.ml.core.snapshot import DatasetSnapshotWriter
 from anonmed.ml.core.types import EvaluationReport
 from anonmed.ml.data.base import Dataset
-from anonmed.ml.evaluation.evaluator import Evaluator
+from anonmed.ml.evaluation.evaluator import EvaluationResult, Evaluator
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.models.base import PIIModel
 
@@ -23,6 +23,21 @@ def evaluate(
     return evaluator.eval_model(model=model, metrics=metrics, show_progress=show_progress)
 
 
+def evaluate_with_predictions(
+    dataset: Dataset,
+    model: PIIModel,
+    metrics: Sequence[Metric],
+    *,
+    show_progress: bool = False,
+) -> EvaluationResult:
+    evaluator = create_evaluator(dataset=dataset)
+    return evaluator.eval_model_with_predictions(
+        model=model,
+        metrics=metrics,
+        show_progress=show_progress,
+    )
+
+
 def create_dataset_snapshot_writer() -> DatasetSnapshotWriter:
     return DatasetSnapshotWriter()
 
@@ -30,10 +45,12 @@ def create_dataset_snapshot_writer() -> DatasetSnapshotWriter:
 __all__ = [
     "Dataset",
     "DatasetSnapshotWriter",
+    "EvaluationResult",
     "Evaluator",
     "Metric",
     "PIIModel",
     "create_dataset_snapshot_writer",
     "create_evaluator",
     "evaluate",
+    "evaluate_with_predictions",
 ]

@@ -189,6 +189,10 @@ class MLOrchestrationTests(unittest.TestCase):
             r"^instance/example/\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_\d{6}/report\.json$",
         )
         self.assertEqual(payload["instance"]["run_dir"], str(Path(report_path).parent))
+        self.assertRegex(
+            payload["instance"]["evaluation_snapshot_json"],
+            r"^instance/example/.+/evaluation_snapshot\.json$",
+        )
         self.assertNotIn("instance/ml", completed_process.stdout)
         self.assertNotIn('"artifacts":', completed_process.stdout)
 

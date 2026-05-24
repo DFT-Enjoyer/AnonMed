@@ -54,6 +54,14 @@ instance/<run.name>/<YYYY-MM-DD_HH-MM-SS_microseconds>/
 
 Например, для `run.name: example` отчёт и snapshot будут лежать в `instance/example/.../report.json` и `instance/example/.../dataset_snapshot.json`.
 
+Dashboard по всем run'ам из `instance` можно собрать в статический HTML без backend-сервера:
+
+```bash
+python3 -m anonmed.ml.visualization.dashboard --instance-root instance --output instance/dashboard.html
+```
+
+По умолчанию raw-тексты из snapshot'ов не встраиваются в HTML. Для отладки с примерами можно явно добавить `--include-samples`.
+
 
 ## Детали
 
