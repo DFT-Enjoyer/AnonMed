@@ -52,13 +52,13 @@ def run_command(cmd, description):
     print(f"    Выполняется: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=False)
     if result.returncode != 0:
-        print(f"❌ Ошибка при выполнении: {description}")
+        print(f" Ошибка при выполнении: {description}")
         sys.exit(result.returncode)
-    print(f"✅ {description} завершён успешно.")
+    print(f" {description} завершён успешно.")
 
 def ensure_file_exists(filepath, description):
     if not Path(filepath).exists():
-        print(f"❌ Ожидаемый файл {filepath} не найден. {description}")
+        print(f" Ожидаемый файл {filepath} не найден. {description}")
         sys.exit(1)
 
 def build_txt_from_jsonl(jsonl_path, txt_path):
@@ -119,7 +119,7 @@ def main():
                 Path(f).unlink()
                 print(f"  Удалён {f}")
 
-    print("\n🎉 Пайплайн успешно выполнен!")
+    print("\n Пайплайн успешно выполнен!")
     print(f"Итоговые файлы: {CLEANED_JSONL} и {FINAL_TXT}")
     print(f"Отчёт валидации сохранён в папке validation_errors/")
 
