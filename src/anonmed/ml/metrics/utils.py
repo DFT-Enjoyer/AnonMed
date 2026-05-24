@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from anonmed.ml.core.types import AnnotationSet, Case, TextDocument
+from anonmed.ml.core.types import AnnotationSet, Case, Span, TextDocument
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,29 +66,20 @@ def hard_entity_counts(prediction: AnnotationSet, target: AnnotationSet) -> Coun
     return Counts(tp=tp, fp=fp, fn=fn)
 
 
-def entity_iou(pred: EntityUnit, target: EntityUnit) -> float:
+def _entities_overlap(pred: EntityUnit, target: EntityUnit) -> bool:
     if pred.line_idx != target.line_idx:
-        return 0.0
+        return False
     if pred.label != target.label:
-        return 0.0
-    intersection = max(0, min(pred.end, target.end) - max(pred.begin, target.begin))
-    if intersection == 0:
-        return 0.0
-    union = max(pred.end, target.end) - min(pred.begin, target.begin)
-    return safe_div(intersection, union)
+        return False
+    return max(pred.begin, target.begin) < min(pred.end, target.end)
 
 
-def _build_soft_edges(
-    pred_entities: list[EntityUnit],
-    target_entities: list[EntityUnit],
-    *,
-    iou_threshold: float,
-) -> list[list[int]]:
+def _build_soft_edges(pred_entities: list[EntityUnit], target_entities: list[EntityUnit]) -> list[list[int]]:
     graph: list[list[int]] = []
     for pred in pred_entities:
         neighbors: list[int] = []
         for target_idx, target in enumerate(target_entities):
-            if entity_iou(pred, target) >= iou_threshold:
+            if _entities_overlap(pred, target):
                 neighbors.append(target_idx)
         graph.append(neighbors)
     return graph
@@ -115,21 +106,10 @@ def _max_bipartite_match(graph: list[list[int]], right_size: int) -> int:
     return matches
 
 
-def soft_entity_counts(
-    prediction: AnnotationSet,
-    target: AnnotationSet,
-    *,
-    iou_threshold: float = 0.5,
-) -> Counts:
-    if not 0.0 < iou_threshold <= 1.0:
-        raise ValueError(f"iou_threshold must be in (0, 1], got {iou_threshold}")
+def soft_entity_counts(prediction: AnnotationSet, target: AnnotationSet) -> Counts:
     pred_entities = entities_from_annotation(prediction)
     target_entities = entities_from_annotation(target)
-    graph = _build_soft_edges(
-        pred_entities,
-        target_entities,
-        iou_threshold=iou_threshold,
-    )
+    graph = _build_soft_edges(pred_entities, target_entities)
     tp = _max_bipartite_match(graph, len(target_entities))
     fp = len(pred_entities) - tp
     fn = len(target_entities) - tp
@@ -174,13 +154,7 @@ def document_total_chars(document: TextDocument) -> int:
     return sum(len(line.text) for line in document.lines)
 
 
-def aggregate_counts(
-    cases: tuple[Case, ...],
-    predictions: tuple[AnnotationSet, ...],
-    mode: str,
-    *,
-    entity_iou_threshold: float = 0.5,
-) -> Counts:
+def aggregate_counts(cases: tuple[Case, ...], predictions: tuple[AnnotationSet, ...], mode: str) -> Counts:
     total_tp = 0
     total_fp = 0
     total_fn = 0
@@ -189,11 +163,7 @@ def aggregate_counts(
         if mode == "entity_hard":
             current = hard_entity_counts(prediction=prediction, target=case.target)
         elif mode == "entity_soft":
-            current = soft_entity_counts(
-                prediction=prediction,
-                target=case.target,
-                iou_threshold=entity_iou_threshold,
-            )
+            current = soft_entity_counts(prediction=prediction, target=case.target)
         elif mode == "char_hard":
             current = hard_char_counts(prediction=prediction, target=case.target)
         elif mode == "char_soft":
@@ -223,25 +193,3 @@ def coverage_percent(cases: tuple[Case, ...], predictions: tuple[AnnotationSet, 
     coverage = safe_div(covered_chars * 100.0, gt_chars)
     over_coverage = safe_div(extra_predicted_chars * 100.0, gt_chars)
     return coverage, over_coverage
-
-
-__all__: list[str] = [
-    "Counts",
-    "EntityUnit",
-    "accuracy_without_tn",
-    "aggregate_counts",
-    "coverage_percent",
-    "document_total_chars",
-    "entities_from_annotation",
-    "entity_iou",
-    "f1",
-    "hard_char_counts",
-    "hard_entity_counts",
-    "labeled_char_units",
-    "precision",
-    "recall",
-    "safe_div",
-    "soft_char_counts",
-    "soft_entity_counts",
-    "unlabeled_char_units",
-]

@@ -2,7 +2,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from anonmed.ml.data.base import Dataset
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+from anonmed.ml.datasets.base import Dataset
 from anonmed.ml.core.types import AnnotationSetLine, Case, Span, TextLine
 
 
@@ -20,13 +23,6 @@ class DatasetSnapshotWriter:
         return path
 
     def write_parquet(self, dataset: Dataset, path_to_file: str | Path) -> Path:
-        try:
-            import pyarrow as pa
-            import pyarrow.parquet as pq
-        except ImportError as error:
-            message = "Writing dataset snapshots to Parquet requires the 'pyarrow' package."
-            raise ImportError(message) from error
-
         self._validate_dataset(dataset)
         path = Path(path_to_file)
         path.parent.mkdir(parents=True, exist_ok=True)

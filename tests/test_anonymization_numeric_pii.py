@@ -15,40 +15,6 @@ class NumericPIICompositionTests(unittest.TestCase):
         self.assertEqual(pipeline_result.matches[0].pii_type, "PHONE")
         self.assertEqual(pipeline_result.matches[0].normalized_value, "+79131234567")
         self.assertEqual(pipeline_result.masked_text, "телефон [PHONE]")
-        self.assertEqual(pipeline_result.masked_normalized_text, "телефон [PHONE]")
-        self.assertEqual(pipeline_result.masked_original_text, "телефон [PHONE]")
-        self.assertEqual(pipeline_result.restored_safe_text, "телефон [PHONE]")
-
-    def test_numeric_pii_pipeline_keeps_original_text_outside_origin_span(self) -> None:
-        pipeline_result = run_numeric_pii_pipeline(
-            "ну, телефон: восемь девять один три один два три четыре пять шесть семь!"
-        )
-
-        self.assertEqual(pipeline_result.preprocessing_result.normalized_text, "телефон 89131234567")
-        self.assertEqual(pipeline_result.masked_normalized_text, "телефон [PHONE]")
-        self.assertEqual(pipeline_result.masked_original_text, "ну, телефон: [PHONE]!")
-        self.assertEqual(pipeline_result.matches[0].value, "восемь девять один три один два три четыре пять шесть семь")
-        self.assertEqual(pipeline_result.matches[0].normalized_start, 8)
-        self.assertEqual(pipeline_result.matches[0].normalized_end, 19)
-
-    def test_numeric_pii_pipeline_can_deduplicate_repeated_lines_before_matching(self) -> None:
-        pipeline_result = run_numeric_pii_pipeline(
-            (
-                "телефон восемь девять один три один два три четыре пять шесть семь\n"
-                "телефон восемь девять один три один два три четыре пять шесть семь"
-            ),
-            deduplicate_repetitions=True,
-        )
-
-        self.assertEqual(
-            pipeline_result.preprocessing_result.normalized_text,
-            "телефон 89131234567",
-        )
-        self.assertEqual(
-            pipeline_result.preprocessing_result.repetition_suppressed_indexes,
-            (1,),
-        )
-        self.assertEqual(len(pipeline_result.matches), 1)
 
     def test_numeric_pii_pipeline_runs_end_to_end_for_mse(self) -> None:
         pipeline_result = run_numeric_pii_pipeline(

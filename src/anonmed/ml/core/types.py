@@ -1,7 +1,5 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from enum import Enum
-import json
-from pathlib import Path
 from typing import Any, TypeAlias
 
 
@@ -172,13 +170,3 @@ class EvaluationReport:
         if not isinstance(self.metrics, dict):
             raise TypeError(f"EvaluationReport.metrics must be dict, got {type(self.metrics).__name__}")
         _ensure_non_negative(self.samples_count, "EvaluationReport.samples_count")
-
-    def to_json(self, filepath: str | Path, **kwargs) -> None:
-        """
-        Сохраняет отчёт в JSON-файл.
-        :param filepath: путь к файлу (строка или Path).
-        :param kwargs: дополнительные параметры для json.dump (например, indent=2, ensure_ascii=False).
-        """
-        data = asdict(self)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2, **kwargs)

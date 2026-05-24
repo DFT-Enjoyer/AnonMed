@@ -1,36 +1,36 @@
 # AnonMed
 
-`AnonMed` — Python-проект для детерминированного препроцессинга шумного русского ASR-текста и последующего rule-based поиска числовых персональных данных в нормализованном тексте.
+`AnonMed` is a Python project for deterministic preprocessing of noisy Russian ASR text and rule-based detection of numeric PII on top of that normalized text.
 
-Кодовая база намеренно разделена на два слоя:
+The codebase is intentionally split into two layers:
 
-- `anonmed.preprocessing`: очистка ASR-текста и числовая нормализация;
-- `anonmed.anonymization`: поиск и маскирование числовых персональных данных.
+- `anonmed.preprocessing`: ASR cleanup and numeric normalization
+- `anonmed.anonymization`: numeric PII detection and masking
 
-Такое разделение позволяет держать очистку входного текста независимой от логики анонимизации и оставляет возможность для дальнейшего добавления модельных пайплайнов.
+That separation keeps input cleanup independent from anonymization logic and leaves room for future model-based pipelines.
 
-## Что делает проект
+## What The Project Does
 
-### Слой препроцессинга
+### Preprocessing layer
 
-Пайплайн препроцессинга рассчитан на шумные русскоязычные ASR-транскрипты. Он:
+The preprocessing pipeline is designed for noisy Russian ASR transcripts. It:
 
-- удаляет речевые сбои, междометия и слова-паразиты;
-- удаляет пунктуацию, сохраняя защищённые разделители;
-- сохраняет пунктуацию внутри числовых паттернов, доменов, URL и email;
-- нормализует проговорённые числа в письменную цифровую форму;
-- возвращает аудиторскую информацию об удалённых и защищённых фрагментах.
+- removes disfluencies and filler words
+- removes punctuation while preserving protected separators
+- preserves punctuation inside numeric patterns, domains, URLs, and emails
+- normalizes spoken numbers into written numeric form
+- returns audit information for removed and protected spans
 
-Типичные примеры:
+Typical examples:
 
 - `телефон восемь девять один три один два три четыре пять шесть семь` -> `телефон 89131234567`
 - `справка мсэ номер ноль восемь семь четыре два три дробь две тысячи двадцать один` -> `справка мсэ номер 087423 дробь 2021`
 
-### Слой анонимизации
+### Anonymization layer
 
-Слой анонимизации работает поверх нормализованного текста и находит числовые персональные данные с использованием контекстных правил.
+The anonymization layer runs on normalized text and detects numeric PII using contextual rules.
 
-Сейчас поддерживаются следующие типы числовых сущностей:
+Currently supported numeric entity types:
 
 - `PHONE`
 - `SNILS`
@@ -43,14 +43,14 @@
 - `BIRTH_CERTIFICATE`
 - `DRIVER_LICENSE`
 
-Этот слой умеет:
+This layer can:
 
-- возвращать структурированные совпадения;
-- нормализовать найденные значения к каноническому виду;
-- маскировать найденные фрагменты в тексте;
-- запускаться как полный end-to-end пайплайн вместе с препроцессингом.
+- return structured matches
+- normalize matched values into canonical form
+- mask detected spans in text
+- run as a full end-to-end pipeline together with preprocessing
 
-## Структура пакета
+## Package Layout
 
 ```text
 src/
@@ -74,7 +74,6 @@ src/
         numeric_lexicon.py
         pipeline.py
         punctuation.py
-        repetition.py
         tokenization.py
         types.py
 
@@ -82,9 +81,9 @@ scripts/
   evaluate_numeric_pii_metrics.py
 ```
 
-## Установка
+## Installation
 
-Для разработки:
+For development:
 
 ```bash
 python3 -m venv .venv
@@ -93,15 +92,15 @@ pip install -e .[dev]
 pytest -q
 ```
 
-Для использования API:
+For API usage:
 
 ```bash
 pip install -e .[api]
 ```
 
-## Основные публичные API
+## Main Public APIs
 
-### 1. Запуск только препроцессинга
+### 1. Run preprocessing only
 
 ```python
 from anonmed.preprocessing import run_asr_normalization
@@ -117,7 +116,7 @@ print(result.normalized_text)
 # телефон 89131234567
 ```
 
-Возвращаемый объект содержит:
+Returned object includes:
 
 - `original_text`
 - `disfluency_cleaned_text`
@@ -129,37 +128,7 @@ print(result.normalized_text)
 - `punctuation_protected_spans`
 - `integer_spans`
 
-### 2. Дедупликация повторяющихся ASR-реплик
-
-```python
-from anonmed.preprocessing import ASRUtterance, deduplicate_asr_utterances
-
-result = deduplicate_asr_utterances(
-    [
-        ASRUtterance("адрес семь", start=0.0, end=1.2),
-        ASRUtterance(
-            "адрес семь квартира двенадцать",
-            start=1.4,
-            end=3.0,
-        ),
-    ]
-)
-
-print(result.raw_transcript)
-# адрес семь адрес семь квартира двенадцать
-
-print(result.clean_transcript)
-# адрес семь квартира двенадцать
-```
-
-Слой дедупликации повторов намеренно сделан консервативным:
-
-- он сохраняет исходную транскрипцию и отдельно формирует очищенную транскрипцию;
-- он сравнивает только локальные кандидатные реплики с учётом времени и расстояния между репликами;
-- он работает без меток говорящих, но может использовать необязательные поля `speaker`, `start`, `end` и `confidence`, если они доступны;
-- он защищает вероятные семантические изменения, например изменение чисел или смену отрицания, если только новая реплика не содержит явного маркера исправления.
-
-### 3. Запуск поиска числовых ПДн по нормализованному тексту
+### 2. Run numeric PII on normalized text
 
 ```python
 from anonmed.anonymization import find_numeric_pii, mask_numeric_pii
@@ -180,7 +149,7 @@ print(mask_numeric_pii(result.normalized_text))
 # телефон [PHONE]
 ```
 
-### 4. Запуск полного end-to-end пайплайна
+### 3. Run the full end-to-end pipeline
 
 ```python
 from anonmed.anonymization import run_numeric_pii_pipeline
@@ -197,7 +166,7 @@ print(result.masked_text)
 # паспорт серия [PASSPORT]
 ```
 
-Возвращаемый объект содержит:
+Returned object includes:
 
 - `original_text`
 - `preprocessing_result`
@@ -206,24 +175,24 @@ print(result.masked_text)
 
 ## CLI
 
-После установки в editable-режиме можно использовать:
+Install in editable mode and use:
 
 ```bash
 anonmed-preprocess "ну эм номер один два" --run
 python -m anonmed.cli "ну эм номер один два" --run
 ```
 
-Поддерживаемые режимы CLI:
+Supported CLI modes:
 
-- режим по умолчанию: вывести извлечённые числовые фрагменты в JSON;
-- `--replace`: заменить только числовые фрагменты;
-- `--clean`: удалить только речевые сбои и междометия;
-- `--punctuation-clean`: удалить только пунктуацию;
-- `--run`: запустить полный пайплайн препроцессинга и вывести нормализованный текст;
-- `--run-json`: запустить полный пайплайн препроцессинга и вывести структурированный JSON;
-- `--keep-punctuation`: отключить удаление пунктуации в режимах `--run` и `--run-json`.
+- default: print extracted numeric spans as JSON
+- `--replace`: replace numeric spans only
+- `--clean`: remove disfluencies only
+- `--punctuation-clean`: remove punctuation only
+- `--run`: run the full preprocessing pipeline and print normalized text
+- `--run-json`: run the full preprocessing pipeline and print structured JSON
+- `--keep-punctuation`: disable punctuation removal in `--run` and `--run-json`
 
-Примеры:
+Examples:
 
 ```bash
 anonmed-preprocess "ну, эм, номер один два три" --run
@@ -235,13 +204,13 @@ anonmed-preprocess "сайт test.com, код один два" --punctuation-cle
 
 ## HTTP API
 
-Запуск API:
+Start the API with:
 
 ```bash
 uvicorn anonmed.api:create_app --factory
 ```
 
-Текущий HTTP API предоставляет эндпоинты препроцессинга:
+Current HTTP API exposes preprocessing endpoints:
 
 - `/v1/asr-integer/parse`
 - `/v1/asr-integer/punctuation-clean`
@@ -250,96 +219,87 @@ uvicorn anonmed.api:create_app --factory
 - `/v1/preprocessing/asr/punctuation-clean`
 - `/v1/preprocessing/asr/run`
 
-На данный момент HTTP API покрывает препроцессинг и извлечение числовых фрагментов на этом слое. Анонимизация числовых ПДн сейчас доступна через Python API и скрипты, но не вынесена в отдельные HTTP-эндпоинты.
+At the moment the HTTP API covers preprocessing and numeric span extraction from that layer. Numeric PII anonymization is currently exposed through Python APIs and scripts, not through separate HTTP endpoints.
 
-## Скрипт оценки
+## Evaluation Script
 
-В репозитории есть скрипт оценки качества поиска числовых ПДн на JSONL-датасетах:
+The repository contains an evaluation script for numeric PII on JSONL datasets:
 
 ```bash
 .venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl
 .venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl --json
 ```
 
-Скрипт:
+The script:
 
-- запускает полный пайплайн `text -> preprocessing -> numeric PII`;
-- оценивает только числовые типы персональных данных;
-- считает `precision`, `recall`, `f1`, `accuracy`;
-- считает `hard` и `soft` метрики;
-- отдельно оценивает `hard_negatives`.
+- runs the full pipeline `text -> preprocessing -> numeric PII`
+- evaluates only numeric PII types
+- computes `precision`, `recall`, `f1`, `accuracy`
+- computes `hard` and `soft` metrics
+- evaluates `hard_negatives` separately
 
-### Hard и soft метрики
+### Hard vs soft metrics
 
-- `hard`: строгое сопоставление на уровне упоминаний по типу и каноническому значению;
-- `soft`: дедуплицированное и более мягкое сопоставление для фрагментированных числовых сущностей внутри одной записи.
+- `hard`: strict mention-level matching by type and canonical value
+- `soft`: deduplicated and more forgiving matching for fragmented numeric entities inside a record
 
-### Instance-файлы
+### Artifacts
 
-Скрипт оценки каждый запуск создаёт директорию:
-
-```text
-instance/YYYY-MM-DD/HH-MM-SS/
-```
-
-ML-пайплайны создают директорию запуска с именем run и timestamp:
+Each run creates a directory:
 
 ```text
-instance/<run.name>/<YYYY-MM-DD_HH-MM-SS_microseconds>/
+artifacts/YYYY-MM-DD/HH-MM-SS/
 ```
 
-Внутри неё:
+Inside it:
 
 - `dataset_after_preprocessing.jsonl`
 - `dataset_after_model.jsonl`
 - `metrics.json`
 - `run_metadata.json`
 
-`dataset_after_preprocessing.jsonl` хранит исходный текст записи вместе с `preprocessed_text`.
+`dataset_after_preprocessing.jsonl` stores the original record text together with `preprocessed_text`.
 
-`dataset_after_model.jsonl` хранит:
+`dataset_after_model.jsonl` stores:
 
 - `preprocessed_text`
 - `masked_text`
-- найденные моделью совпадения с типом, фрагментом, исходным значением и каноническим значением.
+- model matches with type, span, raw value, and canonical value
 
-Корневую директорию `instance` можно переопределить:
+You can override the root directory:
 
 ```bash
-.venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl --instance-root instance
+.venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl --artifacts-root artifacts
 ```
 
-## Проектные замечания
+## Design Notes
 
-Текущая реализация является детерминированной и rule-based. Это не универсальная русскоязычная ITN-система и не обученная NER-модель.
+The current implementation is deterministic and rule-based. It is not a general-purpose Russian ITN system and not a learned NER model.
 
-Это сделано намеренно:
+This is intentional:
 
-- препроцессинг остаётся сфокусированным на очистке текста и числовой нормализации;
-- анонимизация остаётся сфокусированной на контекстном поиске числовых ПДн;
-- оценка может измерять качество всего пайплайна, при этом отдельные слои остаются интерпретируемыми.
+- preprocessing stays focused on text cleanup and numeric normalization
+- anonymization stays focused on contextual numeric PII detection
+- evaluation can measure the whole pipeline while keeping layers inspectable
 
-## Текущие ограничения
+## Current Limitations
 
-- Качество поиска числовых ПДн зависит от качества препроцессинга. Если проговорённые числа нормализованы неправильно, нижележащий слой анонимизации их пропустит.
-- `DATE_BIRTH` остаётся самым сложным классом, потому что устные формы дат значительно разнообразнее обычных последовательностей цифр.
-- Некоторые документные идентификаторы всё ещё сильно зависят от контекста и могут требовать расширения лексического покрытия под новые ASR-стили.
-- HTTP API пока не предоставляет отдельный эндпоинт анонимизации.
+- Numeric PII quality depends on preprocessing quality. If spoken numbers are normalized incorrectly, downstream anonymization will miss them.
+- `DATE_BIRTH` remains the hardest class because spoken date forms are much more varied than plain digit sequences.
+- Some document-like identifiers are still context-sensitive and may require more lexical coverage for new ASR styles.
+- The HTTP API does not yet expose a dedicated anonymization endpoint.
 
-## Рекомендуемый рабочий процесс
+## Suggested Workflow
 
-Для локальной отладки:
+For local debugging:
 
-1. Запустить препроцессинг и проверить `normalized_text`.
-2. Запустить `run_numeric_pii_pipeline(...)` на том же тексте.
-3. При оценке на датасете сначала посмотреть `instance/.../dataset_after_preprocessing.jsonl`.
-4. Затем посмотреть `instance/.../dataset_after_model.jsonl`, чтобы понять, что именно было найдено и замаскировано.
+1. Run preprocessing and inspect `normalized_text`.
+2. Run `run_numeric_pii_pipeline(...)` on the same text.
+3. If evaluating on a dataset, inspect `artifacts/.../dataset_after_preprocessing.jsonl` first.
+4. Then inspect `artifacts/.../dataset_after_model.jsonl` to see what was actually matched and masked.
 
-Обычно это позволяет быстро определить, где возникла ошибка: на этапе нормализации проговорённых чисел или в самих правилах поиска числовых ПДн.
+That usually makes it clear whether an error comes from spoken-number normalization or from the numeric PII rules themselves.
 
-## Ссылка на датасеты
+## Url to datasets
 
 https://disk.360.yandex.ru/d/m4rh5c9qIxh3rg
-
-## Для запуска тестиков
-`python3 -m anonmed.ml.pipelines.example src/anonmed/ml/configs/example.yaml`

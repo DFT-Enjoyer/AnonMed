@@ -1,5 +1,5 @@
 from anonmed.ml.core.types import AnnotationSet
-from anonmed.ml.data.base import Dataset
+from anonmed.ml.datasets.base import Dataset
 from anonmed.ml.metrics.base import Metric
 
 
@@ -21,6 +21,3 @@ class ExampleCountMetric(Metric):
             "predictions_count": len(predictions),
             "cases_count": len(dataset.cases),
         }
-
-
-__all__: list[str] = ["ExampleCountMetric"]

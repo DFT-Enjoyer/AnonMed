@@ -27,7 +27,6 @@ def create_app() -> Any:
         text: str
         include_spans: bool = True
         remove_punctuation: bool = True
-        deduplicate_repetitions: bool = False
 
     app = FastAPI(title="AnonMed Preprocessing API", version="0.2.0")
     extractor = IntegerExtractor()
@@ -58,16 +57,12 @@ def create_app() -> Any:
         return response
 
     def run(request: RunRequest) -> dict[str, Any]:
-        pipeline = ASRNormalizationPipeline(
-            remove_punctuation=request.remove_punctuation,
-            deduplicate_repetitions=request.deduplicate_repetitions,
-        )
+        pipeline = ASRNormalizationPipeline(remove_punctuation=request.remove_punctuation)
         result = pipeline.run(request.text)
         response: dict[str, Any] = {
             "original_text": result.original_text,
             "disfluency_cleaned_text": result.disfluency_cleaned_text,
             "punctuation_cleaned_text": result.punctuation_cleaned_text,
-            "repetition_cleaned_text": result.repetition_cleaned_text,
             "cleaned_text": result.cleaned_text,
             "normalized_text": result.normalized_text,
         }
@@ -79,9 +74,6 @@ def create_app() -> Any:
             response["punctuation_protected_spans"] = [
                 asdict(span) for span in result.punctuation_protected_spans
             ]
-            response["repetition_suppressed_indexes"] = list(
-                result.repetition_suppressed_indexes
-            )
             response["integer_spans"] = [asdict(span) for span in result.integer_spans]
         return response
 

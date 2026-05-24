@@ -46,14 +46,10 @@ class EvaluationConfig:
 
 @dataclass(frozen=True, slots=True)
 class OutputConfig:
-    instance_dir: str = "instance"
+    artifacts_dir: str = "artifacts/ml"
     report_filename: str = "report.json"
     write_dataset_snapshot_json: bool = False
     write_dataset_snapshot_parquet: bool = False
-
-    @property
-    def artifacts_dir(self) -> str:
-        return self.instance_dir
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,7 +172,7 @@ def _run_config(raw: object) -> RunConfig:
     return RunConfig(name=str(mapping.get("name", "default")))
 
 
-def _component_config(raw: object, section: str, cls: type[DatasetConfig] | type[ModelConfig]) -> Any:
+def _component_config(raw: object, section: str, cls: type[DatasetConfig] | type[ModelConfig]):
     if raw is None:
         raise ValueError(f"Missing required config section: {section}.")
     if isinstance(raw, str):
@@ -236,9 +232,8 @@ def _output_config(raw: object) -> OutputConfig:
     if raw is None:
         return OutputConfig()
     mapping = _require_mapping(raw, "outputs")
-    instance_dir = mapping.get("instance_dir", mapping.get("artifacts_dir", "instance"))
     return OutputConfig(
-        instance_dir=str(instance_dir),
+        artifacts_dir=str(mapping.get("artifacts_dir", "artifacts/ml")),
         report_filename=str(mapping.get("report_filename", "report.json")),
         write_dataset_snapshot_json=bool(mapping.get("write_dataset_snapshot_json", False)),
         write_dataset_snapshot_parquet=bool(mapping.get("write_dataset_snapshot_parquet", False)),

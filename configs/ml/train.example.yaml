@@ -8,7 +8,7 @@ training:
 evaluation:
   enabled: true
 outputs:
-  instance_dir: instance
+  artifacts_dir: artifacts/ml
   report_filename: report.json
   write_dataset_snapshot_json: true
   write_dataset_snapshot_parquet: false
