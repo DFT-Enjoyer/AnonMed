@@ -34,4 +34,4 @@ def generate_inn_raw() -> str:
     """Возвращает ИНН в виде строки из 12 цифр."""
     return generate_inn()
 
-___all__: Final[list[str]] = ["generate_inn", "generate_inn_raw", "verbalize_inn"]
+__all__: Final[list[str]] = ["generate_inn", "generate_inn_raw", "verbalize_inn"]

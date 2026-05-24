@@ -9,9 +9,14 @@ from anonmed.anonymization.numeric_pii import (
     mask_numeric_pii,
     normalize_numeric_pii_value,
 )
-from anonmed.anonymization.pipeline import NumericPIIPipelineResult, run_numeric_pii_pipeline
+from anonmed.anonymization.pipeline import (
+    AlignedNumericPIIMatch,
+    NumericPIIPipelineResult,
+    run_numeric_pii_pipeline,
+)
 
 __all__: list[str] = [
+    "AlignedNumericPIIMatch",
     "NumericPIIMatch",
     "NumericPIIRule",
     "NumericPIIType",

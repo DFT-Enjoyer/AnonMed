@@ -11,13 +11,14 @@ class ExampleDataset(Dataset):
         object.__setattr__(self, "_row_data", [{"sample_id": "example-1", "text": "example text"}])
 
     def _convert(self):
-        if self.cases:
-            return
-
-        line = TextLine(idx=0, role=Role(name="client"), text="example text")
-        document = TextDocument(lines=(line,), sample_id="example-1")
-        target_line = AnnotationSetLine(idx=0, role=Role(name="client"), spans=[])
-        target = AnnotationSet(lines=(target_line,), idx="example-1")
+        row: dict[str, Any] = self._row_data[0]
+        sample_id = str(row["sample_id"])
+        text = str(row["text"])
+        role = Role(name="client")
+        line = TextLine(idx=0, role=role, text=text)
+        document = TextDocument(lines=(line,), sample_id=sample_id)
+        target_line = AnnotationSetLine(idx=0, role=role, spans=[])
+        target = AnnotationSet(lines=(target_line,), idx=sample_id)
         object.__setattr__(self, "cases", (Case(document=document, target=target),))
 
 
