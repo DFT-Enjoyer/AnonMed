@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from types import SimpleNamespace
 import unittest
 
 from anonmed.ml.config import pipeline_config_from_mapping
@@ -15,6 +16,13 @@ from anonmed.ml.metrics.example import ExampleCountMetric
 from anonmed.ml.models.GLiNER2 import DEFAULT_ENTITY_DESCRIPTION, GLiNER2Model
 from anonmed.ml.models.example import ExamplePIIModel
 from anonmed.ml.outputs import build_run_instance_dir
+from anonmed.ml.pipelines.GLiNER2_TrH_Tests import (
+    DEFAULT_PROMPTS,
+    _best_feasible_trial,
+    _resolve_trials_count,
+    _threshold_values,
+    build_parser,
+)
 from anonmed.ml.registry import RegistryError, build_dataset
 
 
@@ -125,6 +133,52 @@ class MLOrchestrationTests(unittest.TestCase):
         self.assertEqual(span.label, "PER")
         self.assertEqual(span.data, "Иванов Иван Иванович")
         self.assertEqual(text[span.begin:span.end], "Иванов Иван Иванович")
+
+    def test_gliner2_optuna_pipeline_imports_without_optuna_runtime(self) -> None:
+        parser = build_parser()
+
+        self.assertGreaterEqual(len(DEFAULT_PROMPTS), 3)
+        self.assertEqual(parser.parse_args(["--n-trials", "2"]).n_trials, 2)
+        self.assertEqual(parser.parse_args([]).sampler, "grid")
+        self.assertFalse(parser.parse_args([]).no_progress)
+        self.assertFalse(parser.parse_args([]).document_progress)
+        self.assertTrue(parser.parse_args(["--no-progress"]).no_progress)
+        self.assertTrue(parser.parse_args(["--document-progress"]).document_progress)
+
+    def test_gliner2_grid_search_defaults_to_full_search_space(self) -> None:
+        threshold_values = _threshold_values(0.05, 0.15, 0.05)
+
+        self.assertEqual(threshold_values, [0.05, 0.1, 0.15])
+        self.assertEqual(
+            _resolve_trials_count(
+                n_trials=None,
+                sampler_name="grid",
+                threshold_values=threshold_values,
+                prompts_count=4,
+            ),
+            12,
+        )
+
+    def test_gliner2_threshold_search_prefers_precision_under_recall_constraint(self) -> None:
+        trials = [
+            SimpleNamespace(
+                number=0,
+                user_attrs={"precision": 0.99, "recall": 0.75, "f1": 0.85},
+            ),
+            SimpleNamespace(
+                number=1,
+                user_attrs={"precision": 0.91, "recall": 0.92, "f1": 0.915},
+            ),
+            SimpleNamespace(
+                number=2,
+                user_attrs={"precision": 0.86, "recall": 0.98, "f1": 0.915},
+            ),
+        ]
+
+        best_trial = _best_feasible_trial(trials, min_recall=0.9)
+
+        self.assertIsNotNone(best_trial)
+        self.assertEqual(best_trial.number, 1)
 
     def test_unknown_dataset_id_is_rejected(self) -> None:
         config = pipeline_config_from_mapping(
