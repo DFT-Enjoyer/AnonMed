@@ -7,8 +7,8 @@ import re
 from typing import List, Dict, Tuple, Optional
 
 # ========== НАСТРОЙКИ ==========
-API_KEY = "Your_API_key"
-FOLDER_ID = "your_folder_id"
+API_KEY = ""
+FOLDER_ID = ""
 MODEL_URI = f"gpt://{FOLDER_ID}/yandexgpt-5.1/latest"
 URL = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
 
@@ -26,7 +26,7 @@ SCENARIOS_FILE = "scenarios.txt"
 
 # Максимальное количество запросов к LLM. Установите нужное число (например, 5, 10, 100).
 # Если поставить None, ограничение будет снято (обработаются все строки CSV).
-MAX_REQUESTS = "your_number_of_dialogs"
+MAX_REQUESTS = 
 
 # Словарь русских названий полей (для красивого вывода)
 FIELD_NAME_RU = {
