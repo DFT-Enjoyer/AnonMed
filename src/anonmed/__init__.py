@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from anonmed.anonymization import (
+    AlignedNumericPIIMatch,
     NumericPIIMatch,
     NumericPIIPipelineResult,
     NumericPIIRule,
@@ -19,6 +20,7 @@ from anonmed.preprocessing import (
 )
 
 __all__: list[str] = [
+    "AlignedNumericPIIMatch",
     "ASRNormalizationPipeline",
     "ASRNormalizationResult",
     "ASRTextPreprocessingPipeline",
