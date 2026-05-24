@@ -52,13 +52,13 @@ class NumericPIICompositionTests(unittest.TestCase):
 
     def test_numeric_pii_pipeline_runs_end_to_end_for_mse(self) -> None:
         pipeline_result = run_numeric_pii_pipeline(
-            "справка мсэ номер ноль восемь семь четыре два три дробь две тысячи двадцать один"
+            "справка мсэ номер ноль один двадцать шесть ноль ноль ноль тысяча двести тридцать четыре"
         )
         self.assertEqual(
             pipeline_result.preprocessing_result.normalized_text,
-            "справка мсэ номер 087423 дробь 2021",
+            "справка мсэ номер 01260001234",
         )
-        self.assertEqual([match.normalized_value for match in pipeline_result.matches], ["0874232021"])
+        self.assertEqual([match.normalized_value for match in pipeline_result.matches], ["01260001234"])
         self.assertEqual(pipeline_result.masked_text, "справка мсэ номер [MSE]")
 
     def test_numeric_pii_pipeline_concatenates_document_number_chunks(self) -> None:

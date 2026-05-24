@@ -35,6 +35,13 @@ class NumericPIIRulesTests(unittest.TestCase):
     def test_phone_with_plus_symbol(self) -> None:
         self.assert_single_match("номер телефона +7 913 123 45 67", "PHONE", "+79131234567")
 
+    def test_landline_phone_with_context(self) -> None:
+        self.assert_single_match("домашний телефон 123 456", "PHONE", "123456")
+
+    def test_landline_phone_without_context_is_rejected(self) -> None:
+        matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("анализ 123 456")
+        self.assertEqual(matches, ())
+
     def test_phone_is_rejected_in_policy_context(self) -> None:
         matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("полис 89131234567")
         self.assertEqual(matches, ())
@@ -59,8 +66,9 @@ class NumericPIIRulesTests(unittest.TestCase):
     def test_oms_sixteen_digits(self) -> None:
         self.assert_single_match("полис омс 1234 5678 9012 3456", "OMS", "1234567890123456")
 
-    def test_oms_short_contextual_digits(self) -> None:
-        self.assert_single_match("номер полиса 1234567890", "OMS", "1234567890")
+    def test_oms_short_contextual_digits_are_rejected(self) -> None:
+        matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("номер полиса 1234567890")
+        self.assertEqual(matches, ())
 
     def test_passport_series_and_number_with_inner_number_word(self) -> None:
         self.assert_single_match("паспорт серия 12 34 номер 567890", "PASSPORT", "1234567890")
@@ -201,17 +209,14 @@ class NumericPIIRulesTests(unittest.TestCase):
         self.assertEqual(matches, ())
 
     def test_mse_number(self) -> None:
-        self.assert_single_match("справка мсэ номер 123456 2024", "MSE", "1234562024")
+        self.assert_single_match("справка мсэ номер 0126 0001234", "MSE", "01260001234")
 
-    def test_mse_number_with_slash_separator(self) -> None:
-        self.assert_single_match("справка мсэ номер 087423/2021", "MSE", "0874232021")
+    def test_mse_number_with_inner_number_word(self) -> None:
+        self.assert_single_match("справка мсэ серия 0126 номер 0001234", "MSE", "01260001234")
 
-    def test_mse_number_with_word_separator_after_asr_normalization(self) -> None:
-        self.assert_single_match(
-            "справка мсэ номер 087423 дробь 2021",
-            "MSE",
-            "0874232021",
-        )
+    def test_short_mse_number_is_rejected(self) -> None:
+        matches: tuple[NumericPIIMatch, ...] = find_numeric_pii("справка мсэ номер 087423 2021")
+        self.assertEqual(matches, ())
 
     def test_birth_certificate_number(self) -> None:
         self.assert_single_match("свидетельство о рождении номер 123456", "BIRTH_CERTIFICATE", "123456")
