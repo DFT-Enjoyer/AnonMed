@@ -1,4 +1,3 @@
-artifacts
 instructions.md
 review.md
 .venv
@@ -81,7 +80,6 @@ dmypy.json
 *.joblib
 data/*.json
 data/*.csv
-artifacts/
 snapshots/
 dataset_snapshot.*
 *.db
@@ -155,3 +153,5 @@ checkpoints/
 *.key
 *.pem
 *.crt
+
+instance/

@@ -4,6 +4,7 @@ from anonmed.ml.config import load_pipeline_config
 from anonmed.ml.registry import build_pipeline_components
 from anonmed.ml.factory import evaluate, create_dataset_snapshot_writer
 from anonmed.ml.metrics.base import Metric
+from anonmed.ml.outputs import build_run_instance_dir
 
 def main():
     if len(sys.argv) != 2:
@@ -24,7 +25,7 @@ def main():
 
     report = evaluate(components.dataset, components.model, components.metrics)
 
-    output_dir = Path(config.outputs.artifacts_dir)
+    output_dir = build_run_instance_dir(config)
     output_dir.mkdir(parents=True, exist_ok=True)
     report_path = output_dir / config.outputs.report_filename
     report.to_json(report_path)

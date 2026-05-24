@@ -1,10 +1,28 @@
-from datasets import load_dataset
-from tqdm.auto import tqdm
 from anonmed.ml.core.types import (
     Role, ParticipantKind, Span, TextLine, TextDocument,
     AnnotationSetLine, AnnotationSet, Case
 )
 from anonmed.ml.data.base import Dataset
+
+
+def _load_huggingface_dataset():
+    try:
+        from datasets import load_dataset
+    except ImportError as error:
+        message = (
+            "RussianPIIDataset requires the Hugging Face 'datasets' package. "
+            "Install the ML extras or add 'datasets>=2.20' to the environment."
+        )
+        raise ImportError(message) from error
+    return load_dataset
+
+
+def _progress(iterable, **kwargs):
+    try:
+        from tqdm.auto import tqdm
+    except ImportError:
+        return iterable
+    return tqdm(iterable, **kwargs)
 
 class RussianPIIDataset(Dataset):
     def __init__(self, sample_size: int = 2000, random_seed: int = 42):
@@ -13,6 +31,7 @@ class RussianPIIDataset(Dataset):
         super().__init__()   # cases = field(init=False)
 
     def _load(self):
+        load_dataset = _load_huggingface_dataset()
         ds = load_dataset("wolframko/russian-pii-66k", split="train")
         ds = ds.shuffle(seed=self.random_seed).select(range(min(self.sample_size, len(ds))))
         object.__setattr__(self, '_row_data', ds)
@@ -20,7 +39,7 @@ class RussianPIIDataset(Dataset):
     def _convert(self):
         role = Role(name="text", kind=ParticipantKind.UNKNOWN)
         case_list = []
-        for idx, record in enumerate(tqdm(self._row_data, desc="Converting")):
+        for idx, record in enumerate(_progress(self._row_data, desc="Converting")):
             text = record.get("source_text") or ""
             if not text.strip():
                 continue

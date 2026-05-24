@@ -1,12 +1,32 @@
-from natasha import Segmenter, NewsEmbedding, NewsNERTagger, Doc, PER
 from anonmed.ml.core.types import AnnotationSet, AnnotationSetLine, Span, TextDocument
 from anonmed.ml.models.base import PIIModel
 
-segmenter = Segmenter()
-emb = NewsEmbedding()
-ner_tagger = NewsNERTagger(emb)
+_NATASHA_COMPONENTS = None
+
+
+def _load_natasha_components():
+    global _NATASHA_COMPONENTS
+
+    if _NATASHA_COMPONENTS is not None:
+        return _NATASHA_COMPONENTS
+
+    try:
+        from natasha import Doc, NewsEmbedding, NewsNERTagger, PER, Segmenter
+    except ImportError as error:
+        message = (
+            "NatashaPERModel requires the 'natasha' package. "
+            "Install the ML extras or add 'natasha>=1.6' to the environment."
+        )
+        raise ImportError(message) from error
+
+    segmenter = Segmenter()
+    embedding = NewsEmbedding()
+    ner_tagger = NewsNERTagger(embedding)
+    _NATASHA_COMPONENTS = (Doc, PER, segmenter, ner_tagger)
+    return _NATASHA_COMPONENTS
 
 def predict_natasha_per(text: str):
+    Doc, PER, segmenter, ner_tagger = _load_natasha_components()
     doc = Doc(text)
     doc.segment(segmenter)
     doc.tag_ner(ner_tagger)

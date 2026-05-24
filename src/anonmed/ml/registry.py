@@ -7,7 +7,6 @@ from anonmed.ml.config import DatasetConfig, MetricConfig, ModelConfig, Pipeline
 
 from anonmed.ml.data.base import Dataset
 from anonmed.ml.data.example import build_example_dataset
-from anonmed.ml.data.russian_pii_66k import RussianPIIDataset
 
 from anonmed.ml.metrics.base import Metric
 from anonmed.ml.metrics.example import ExampleCountMetric
@@ -16,7 +15,6 @@ from anonmed.ml.metrics.char_hard import CharHardF1Metric
 
 from anonmed.ml.models.base import PIIModel
 from anonmed.ml.models.example import ExamplePIIModel
-from anonmed.ml.models.natasha_per import NatashaPERModel
 
 
 DatasetBuilder = Callable[[DatasetConfig], Dataset]
@@ -55,12 +53,16 @@ def _build_example_count_metric(config: MetricConfig) -> Metric:
     return ExampleCountMetric()
 
 def _build_russian_pii_dataset(config: DatasetConfig) -> Dataset:
+    from anonmed.ml.data.russian_pii_66k import RussianPIIDataset
+
     params = config.params
     sample_size = params.get("sample_size", 2000)
     random_seed = params.get("random_seed", 42)
     return RussianPIIDataset(sample_size=sample_size, random_seed=random_seed)
 
 def _build_natasha_per_model(config: ModelConfig) -> PIIModel:
+    from anonmed.ml.models.natasha_per import NatashaPERModel
+
     _reject_params(config.id, config.params)
     return NatashaPERModel()
 
