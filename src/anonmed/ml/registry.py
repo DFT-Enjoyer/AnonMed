@@ -7,16 +7,37 @@ from anonmed.ml.config import DatasetConfig, MetricConfig, ModelConfig, Pipeline
 
 from anonmed.ml.data.base import Dataset
 from anonmed.ml.data.example import build_example_dataset
+from anonmed.ml.data.in_the_wild_datasets import (
+    InTheWildComprehensivePIIDataset,
+    InTheWildControlledPIIDataset,
+    InTheWildDataset,
+    InTheWildDialogPIIDataset,
+    InTheWildMedicalNotesPIIDataset,
+    InTheWildNamesAddressesDataset,
+    InTheWildNewsEntityDataset,
+)
 
-from anonmed.ml.metrics.base import Metric
-from anonmed.ml.metrics.example import ExampleCountMetric
-from anonmed.ml.metrics.entity_hard import (
+from anonmed.ml.metrics import (
+    CharHardAccuracyMetric,
+    CharHardF1Metric,
+    CharHardPrecisionMetric,
+    CharHardRecallMetric,
+    CharSoftAccuracyMetric,
+    CharSoftF1Metric,
+    CharSoftPrecisionMetric,
+    CharSoftRecallMetric,
+    CoveragePercentMetric,
+    EntityHardAccuracyMetric,
     EntityHardF1Metric,
     EntityHardPrecisionMetric,
     EntityHardRecallMetric,
+    EntitySoftAccuracyMetric,
+    EntitySoftF1Metric,
+    EntitySoftPrecisionMetric,
+    EntitySoftRecallMetric,
+    ExampleCountMetric,
+    Metric,
 )
-from anonmed.ml.metrics.char_hard import CharHardF1Metric
-from anonmed.ml.metrics.coverage import CoveragePercentMetric
 
 from anonmed.ml.models.base import PIIModel
 from anonmed.ml.models.example import ExamplePIIModel
@@ -25,6 +46,8 @@ from anonmed.ml.models.example import ExamplePIIModel
 DatasetBuilder = Callable[[DatasetConfig], Dataset]
 ModelBuilder = Callable[[ModelConfig], PIIModel]
 MetricBuilder = Callable[[MetricConfig], Metric]
+MetricType = type[Metric]
+InTheWildDatasetType = type[InTheWildDataset]
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,14 +71,38 @@ def _build_example_dataset(config: DatasetConfig) -> Dataset:
     return build_example_dataset()
 
 
+def _build_in_the_wild_dataset_from_class(
+    config: DatasetConfig,
+    dataset_class: InTheWildDatasetType,
+) -> Dataset:
+    try:
+        return dataset_class(**dict(config.params))
+    except TypeError as error:
+        raise RegistryError(
+            f"Invalid params for dataset {config.id!r}: {dict(config.params)!r}"
+        ) from error
+
+
+def _in_the_wild_dataset_builder(dataset_class: InTheWildDatasetType) -> DatasetBuilder:
+    def build(config: DatasetConfig) -> Dataset:
+        return _build_in_the_wild_dataset_from_class(config, dataset_class)
+
+    return build
+
+
 def _build_example_model(config: ModelConfig) -> PIIModel:
     _reject_params(config.id, config.params)
     return ExamplePIIModel()
 
 
-def _build_example_count_metric(config: MetricConfig) -> Metric:
-    _reject_params(config.id, config.params)
-    return ExampleCountMetric()
+def _build_metric_from_class(config: MetricConfig, metric_class: MetricType) -> Metric:
+    try:
+        return metric_class(**dict(config.params))
+    except TypeError as error:
+        raise RegistryError(
+            f"Invalid params for metric {config.id!r}: {dict(config.params)!r}"
+        ) from error
+
 
 
 def _build_russian_pii_dataset(config: DatasetConfig) -> Dataset:
@@ -74,30 +121,11 @@ def _build_natasha_per_model(config: ModelConfig) -> PIIModel:
     return NatashaPERModel()
 
 
-def _build_gliner2_model(config: ModelConfig) -> PIIModel:
-    from anonmed.ml.models.GLiNER2 import GLiNER2Model
+def _metric_builder(metric_class: MetricType) -> MetricBuilder:
+    def build(config: MetricConfig) -> Metric:
+        return _build_metric_from_class(config, metric_class)
 
-    return GLiNER2Model(**dict(config.params))
-
-
-def _build_entity_hard_precision(config: MetricConfig) -> Metric:
-    _reject_params(config.id, config.params)
-    return EntityHardPrecisionMetric()
-
-
-def _build_entity_hard_recall(config: MetricConfig) -> Metric:
-    _reject_params(config.id, config.params)
-    return EntityHardRecallMetric()
-
-
-def _build_entity_hard_f1(config: MetricConfig) -> Metric:
-    _reject_params(config.id, config.params)
-    return EntityHardF1Metric()
-
-
-def _build_char_hard_f1(config: MetricConfig) -> Metric:
-    _reject_params(config.id, config.params)
-    return CharHardF1Metric()
+    return build
 
 def _build_coverage_percent(config: MetricConfig) -> Metric:
     _reject_params(config.id, config.params)
@@ -106,6 +134,20 @@ def _build_coverage_percent(config: MetricConfig) -> Metric:
 
 DATASET_BUILDERS = {
     "example": _build_example_dataset,
+    InTheWildComprehensivePIIDataset.name: _in_the_wild_dataset_builder(
+        InTheWildComprehensivePIIDataset
+    ),
+    InTheWildControlledPIIDataset.name: _in_the_wild_dataset_builder(
+        InTheWildControlledPIIDataset
+    ),
+    InTheWildDialogPIIDataset.name: _in_the_wild_dataset_builder(InTheWildDialogPIIDataset),
+    InTheWildMedicalNotesPIIDataset.name: _in_the_wild_dataset_builder(
+        InTheWildMedicalNotesPIIDataset
+    ),
+    InTheWildNamesAddressesDataset.name: _in_the_wild_dataset_builder(
+        InTheWildNamesAddressesDataset
+    ),
+    InTheWildNewsEntityDataset.name: _in_the_wild_dataset_builder(InTheWildNewsEntityDataset),
     "russian_pii_66k": _build_russian_pii_dataset,
 }
 
@@ -116,12 +158,24 @@ MODEL_BUILDERS = {
 }
 
 METRIC_BUILDERS = {
-    "example_count": _build_example_count_metric,
-    "entity_hard_precision": _build_entity_hard_precision,
-    "entity_hard_recall": _build_entity_hard_recall,
-    "entity_hard_f1": _build_entity_hard_f1,
-    "char_hard_f1": _build_char_hard_f1,
-    "coverage_percent": _build_coverage_percent,
+    "char_hard_accuracy": _metric_builder(CharHardAccuracyMetric),
+    "char_hard_f1": _metric_builder(CharHardF1Metric),
+    "char_hard_precision": _metric_builder(CharHardPrecisionMetric),
+    "char_hard_recall": _metric_builder(CharHardRecallMetric),
+    "char_soft_accuracy": _metric_builder(CharSoftAccuracyMetric),
+    "char_soft_f1": _metric_builder(CharSoftF1Metric),
+    "char_soft_precision": _metric_builder(CharSoftPrecisionMetric),
+    "char_soft_recall": _metric_builder(CharSoftRecallMetric),
+    "coverage_percent": _metric_builder(CoveragePercentMetric),
+    "entity_hard_accuracy": _metric_builder(EntityHardAccuracyMetric),
+    "entity_hard_f1": _metric_builder(EntityHardF1Metric),
+    "entity_hard_precision": _metric_builder(EntityHardPrecisionMetric),
+    "entity_hard_recall": _metric_builder(EntityHardRecallMetric),
+    "entity_soft_accuracy": _metric_builder(EntitySoftAccuracyMetric),
+    "entity_soft_f1": _metric_builder(EntitySoftF1Metric),
+    "entity_soft_precision": _metric_builder(EntitySoftPrecisionMetric),
+    "entity_soft_recall": _metric_builder(EntitySoftRecallMetric),
+    "example_count": _metric_builder(ExampleCountMetric),
 }
 
 

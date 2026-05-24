@@ -21,3 +21,6 @@ class ExampleCountMetric(Metric):
             "predictions_count": len(predictions),
             "cases_count": len(dataset.cases),
         }
+
+
+__all__: list[str] = ["ExampleCountMetric"]

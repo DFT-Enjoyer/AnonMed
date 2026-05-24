@@ -36,3 +36,6 @@ class Metric(ABC):
                 "predictions and dataset size mismatch: "
                 f"len(predictions)={len(predictions)} != len(dataset.cases)={len(dataset.cases)}"
             )
+
+
+__all__: list[str] = ["Metric"]

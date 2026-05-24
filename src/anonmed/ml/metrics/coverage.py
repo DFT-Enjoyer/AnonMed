@@ -19,3 +19,6 @@ class CoveragePercentMetric(Metric):
             "coverage_percent": coverage,
             "over_coverage_percent": over_coverage,
         }
+
+
+__all__: list[str] = ["CoveragePercentMetric"]

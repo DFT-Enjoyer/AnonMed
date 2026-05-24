@@ -42,6 +42,8 @@
 
 Для запуска нужно написать добавить скрипт пайплайна в папку `pipelines` и создать в папке `configs` новый конфигурационный файл, в котором указан ключ билдера нужного класса (ключ находится в файле `registry.py`). Пример со структурой конфига приведён в `configs/example.yaml`, пример со скриптом пайплайна приведён в `pipelines/example.py`. 
 
+Локальные wrapper'ы для `data/in_the_wild_datasets`: `in_the_wild_russian_pii_speech`, `in_the_wild_russian_news_ner`, `in_the_wild_russian_names_addresses`, `in_the_wild_dialog_pii`, `in_the_wild_controlled_synthetic_pii`, `in_the_wild_medical_notes_pii`.
+
 Пайплайн `example.py` запускается командой `python3 -m anonmed.ml.pipelines.example src/anonmed/ml/configs/example.yaml` из корня проекта.
 
 Результаты запуска сохраняются в отдельную директорию внутри `outputs.instance_dir`:
