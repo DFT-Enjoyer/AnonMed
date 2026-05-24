@@ -27,6 +27,7 @@ model:
       person-name span as one entity; do not split it into surname, given name,
       patronymic, or initials. Do not extract organizations, job titles, medical
       roles, addresses, document numbers, phone numbers, dates, or other non-person PII.
+    threshold: 0.6
 
 metrics:
   # List of metrics to compute. Each can be a string (id only) or a mapping with params.
