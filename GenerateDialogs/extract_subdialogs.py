@@ -140,21 +140,19 @@ def choose_window_fallback(utterances: list[str]) -> tuple[int, int] | None:
             best.append((s, e))
     return random.choice(best) if best else None
 
-def adjust_spans_for_window(original_spans: list[dict],
-                            utterances: list[str],
-                            start_reply: int,
-                            end_reply: int) -> list[dict]:
-    """Пересчитывает спаны для выбранного окна (целые реплики)."""
+def adjust_spans_for_window(original_spans, utterances, start_reply, end_reply):
     bounds = get_utterance_bounds(utterances)
     prefix_len = compute_prefix_length(utterances, start_reply)
     new_spans = []
     for sp in original_spans:
         old_begin, old_end = sp['begin'], sp['end']
-        # Проверяем, что спан полностью внутри диапазона реплик
         range_start = bounds[start_reply][0]
         range_end = bounds[end_reply][1]
+        # Строгая проверка: спан должен полностью лежать внутри диапазона
         if old_begin < range_start or old_end > range_end:
             continue
+        # Дополнительно: убедимся, что данные спана полностью извлекаются из выбранного текста
+        # (можно добавить отладочный вывод)
         new_begin = old_begin - prefix_len
         new_end = old_end - prefix_len
         new_sp = sp.copy()
@@ -167,7 +165,7 @@ def compute_prefix_length(utterances: list[str], start_idx: int) -> int:
     if start_idx == 0:
         return 0
     total_len = sum(len(u) for u in utterances[:start_idx])
-    total_len += (start_idx - 1)
+    total_len += start_idx   # количество \n перед этой репликой
     return total_len
 
 def main():

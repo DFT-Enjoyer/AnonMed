@@ -81,6 +81,7 @@ ABBR_MAP = {
     "ш": "шоссе",
     "наб": "набережная",
     "бульв": "бульвар",
+    "рн": "район",
 }
 
 def expand_address_abbreviations(text, spans):
