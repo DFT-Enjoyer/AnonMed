@@ -29,24 +29,24 @@
 Корень проекта должен содержать следующие директории и файлы:
 
 .
-├── DataForGen/ # Исходные текстовые данные
-│ ├── companies_names_only.csv # Колонка: full_company_name
-│ ├── full_address_only.csv # Колонка: full_address
-│ ├── name_email_filtered.csv # Колонки: email, name
-│ └── nicks_with_at.csv # Колонка: tg_nicks (переименовывается в nicks_with_at)
+├── DataForGen/
+│   ├── companies_names_only.csv      # Колонка: full_company_name
+│   ├── full_address_only.csv         # Колонка: full_address
+│   ├── name_email_filtered.csv       # Колонки: email, name
+│   └── nicks_with_at.csv             # Колонка: tg_nicks (переименовывается в nicks_with_at)
 │
-├── generate_numbers/ # Генератор числовых данных
-│ ├── generate_all_csv.py # Основной скрипт генерации
-│ └── README.md
+├── generate_numbers/
+│   ├── generate_all_csv.py
+│   └── README.md
 │
-├── transclit/ # Транслитератор
-│ ├── translit.py # Скрипт транслитерации
-│ └── README.md
+├── transclit/
+│   ├── translit.py
+│   └── README.md
 │
-├── gen_all/ # <-- папка со скриптом объединения
-│ └── merge_script.py
+├── gen_all/
+│   └── merge_script.py
 │
-└── requirements.txt # (опционально) зависимости
+└── requirements.txt   # (опционально) зависимости
 
 - Python 3.10+
 - `num2words` — установить через `pip install num2words`
