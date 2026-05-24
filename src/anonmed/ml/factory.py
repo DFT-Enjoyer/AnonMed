@@ -16,9 +16,11 @@ def evaluate(
     dataset: Dataset,
     model: PIIModel,
     metrics: Sequence[Metric],
+    *,
+    show_progress: bool = False,
 ) -> EvaluationReport:
     evaluator = create_evaluator(dataset=dataset)
-    return evaluator.eval_model(model=model, metrics=metrics)
+    return evaluator.eval_model(model=model, metrics=metrics, show_progress=show_progress)
 
 
 def create_dataset_snapshot_writer() -> DatasetSnapshotWriter:
