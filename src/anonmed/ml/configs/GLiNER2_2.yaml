@@ -1,0 +1,60 @@
+# Example pipeline configuration for AnonMed ML evaluation.
+# Save as configs/example.yaml (or any name), and run:
+#   python -m anonmed.ml.pipelines.run_evaluation configs/example.yaml
+
+run:
+  # Optional run name for logging/organization.
+  name: "GLiNER2_evaluation"
+
+dataset:
+  # Identifier registered in DATASET_BUILDERS (see registry.py).
+  id: "russian_pii_66k"
+  # Parameters passed to the dataset constructor (e.g., RussianPIIDataset).
+  params:
+    sample_size: 5000        # number of examples to load
+    random_seed: 1543          # for reproducibility
+
+model:
+  # Identifier registered in MODEL_BUILDERS.
+  id: "GLiNER2"
+  # Parameters for the model (if any).
+  params:
+      # Russian full personal name / ФИО: a contiguous mention of an individual person's name in Russian text. Extract only the name tokens themselves, including surname, given name, patronymic, and initials when present. Valid spans include Иванов Иван Иванович, Иванов Иван, Иван Иванович, Иванов И. И., И. И. Иванов, and single-token surnames when they clearly denote a person. Exclude titles, roles, medical roles, kinship words, organizations, addresses, dates, document numbers, phone numbers, and surrounding context. The span must start at the first name token and end at the last name token; do not include words like пациент, врач, доктор, гражданин, представитель, клиент, ФИО, имя, фамилия, отчество, or punctuation around the name.
+    entity_name: "person"
+    entity_description: >
+      Russian full personal name / ФИО: a contiguous mention of an individual person's name in Russian text. Extract only the name tokens themselves, including surname, given name, patronymic, and initials when present. Valid spans include Иванов Иван Иванович, Иванов Иван, Иван Иванович, Иванов И. И., И. И. Иванов, and single-token surnames when they clearly denote a person. Exclude titles, roles, medical roles, kinship words, organizations, addresses, dates, document numbers, phone numbers, and surrounding context. The span must start at the first name token and end at the last name token; do not include words like пациент, врач, доктор, гражданин, представитель, клиент, ФИО, имя, фамилия, отчество, or punctuation around the name.    threshold: 0.85
+      Russian ФИО / person name: extract all contiguous mentions of a person's name in Russian text, including full names, partial names, surnames, given-name plus patronymic, surname plus initials, and initials plus surname. Extract only the name itself, not surrounding roles, labels, titles, or context words. If a phrase contains both a role and a name, return only the name span. Do not extract organizations, addresses, dates, phones, document numbers, or non-person entities.
+    threshold: 0.8
+
+metrics:
+  # List of metrics to compute. Each can be a string (id only) or a mapping with params.
+  - id: "entity_hard_f1"
+    params: {}               # optional, specific to metric
+  - id: "entity_hard_precision"
+    params: {}
+  - id: "entity_hard_recall"
+    params: {}
+  - id: "coverage_percent"
+    params: {}
+
+training:
+  # Whether to run training phase (if model implements TrainablePIIModel).
+  enabled: false
+  # Optional trainer identifier (e.g., "simple_trainer").
+  trainer: null
+  # Training hyperparameters (unused if enabled=false).
+  params: {}
+
+evaluation:
+  # Whether to run evaluation after training (or standalone).
+  enabled: true
+
+outputs:
+  # Directory where reports and dataset snapshots will be saved.
+  instance_dir: "instance"
+  # Filename for the evaluation report (JSON).
+  report_filename: "report.json"
+  # Whether to write a human-readable JSON snapshot of the whole dataset.
+  write_dataset_snapshot_json: true
+  # Whether to write a Parquet snapshot (more efficient for large data).
+  write_dataset_snapshot_parquet: false
