@@ -48,6 +48,9 @@
 
 Результаты запуска сохраняются в отдельную директорию внутри `outputs.instance_dir`:
 
+Что бы визуализировать полученные результаты использовать команду: `python3 -m anonmed.ml.visualization.dashboard --instance-root instance --output instance/dashboard.html`
+В `instance` сгенерится файл `dashboard.html`.
+
 ```text
 instance/<run.name>/<YYYY-MM-DD_HH-MM-SS_microseconds>/
 ```
