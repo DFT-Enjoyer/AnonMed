@@ -446,18 +446,22 @@ pip install -e .[ml]
 
 ## Скрипт Оценки
 
-Для оценки numeric PII на JSONL-датасетах:
+Для оценки PII на JSONL-датасетах по всем 15 типам из презентации:
 
 ```bash
-.venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl
-.venv/bin/python scripts/evaluate_numeric_pii_metrics.py gt_asr.jsonl --json
+.venv/bin/python scripts/evaluate_pii_metrics.py gt_asr.jsonl
+.venv/bin/python scripts/evaluate_pii_metrics.py gt_asr.jsonl --json
+.venv/bin/python scripts/evaluate_pii_metrics.py gt_asr.jsonl --ml-model natasha_per --use-ml
 ```
 
 Скрипт:
 
-- запускает полный numeric pipeline;
+- запускает `PIIAnonymizer`;
+- оценивает `PER`, `PHONE`, `ADDRESS`, `SNILS`, `PASSPORT`, `EMAIL`, `DATE_BIRTH`, `OMS`,
+  `INN`, `AGE`, `WORKPLACE`, `MSE`, `BIRTH_CERTIFICATE`, `DRIVER_LICENSE`, `TELEGRAM`;
 - считает `precision`, `recall`, `f1`, `accuracy`;
-- считает hard и soft метрики;
+- считает hard/soft, span, character, privacy и alignment-метрики;
+- дополнительно добавляет блок `ml_metrics` на базе `anonmed.ml.metrics.utils`;
 - отдельно оценивает `hard_negatives`;
 - пишет instance-файлы с промежуточными результатами.
 
@@ -481,14 +485,6 @@ pip install -e .[ml]
 
 Обычно этого достаточно, чтобы понять, на каком этапе возникла ошибка.
 
-## Тесты
-
-В этом репозитории рабочий Python указан в `instructions.md`:
-
-```bash
-/Users/jafonoksy/PycharmProjects/AnonMed/.venv/bin/python -m pytest
-/Users/jafonoksy/PycharmProjects/AnonMed/.venv/bin/python -m ruff check src tests scripts/evaluate_numeric_pii_metrics.py
-```
 
 ## Датасеты
 

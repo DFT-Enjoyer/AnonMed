@@ -16,23 +16,80 @@ _REPOSITORY_ROOT: Path = Path(__file__).resolve().parents[1]
 if str(_REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPOSITORY_ROOT))
 
+from anonmed import PIIAnonymizer  # noqa: E402
 from anonmed.anonymization import (  # noqa: E402
     NumericPIIType,
     normalize_numeric_pii_value,
-    run_numeric_pii_pipeline,
+)
+from anonmed.ml.core.types import (  # noqa: E402
+    AnnotationSet,
+    AnnotationSetLine,
+    Case,
+    ParticipantKind,
+    Role,
+    Span,
+    TextDocument,
+    TextLine,
+)
+from anonmed.ml.metrics.utils import (  # noqa: E402
+    Counts,
+    accuracy_without_tn,
+    aggregate_counts,
+    f1,
+    precision,
+    recall,
 )
 from anonmed.preprocessing.asr.number_extractor import IntegerExtractor  # noqa: E402
 from anonmed.preprocessing.asr.number_parser import parse_numeric_tokens  # noqa: E402
 from anonmed.preprocessing.asr.tokenization import tokenize_preserving_spans  # noqa: E402
 from anonmed.preprocessing.asr.types import ExtractorConfig, NumericToken, Token  # noqa: E402
 
-NUMERIC_TYPE_MAP: dict[str, str] = {
+NUMERIC_PII_TYPES: frozenset[str] = frozenset(
+    {
+        "PHONE",
+        "SNILS",
+        "PASSPORT",
+        "DATE_BIRTH",
+        "OMS",
+        "INN",
+        "AGE",
+        "MSE",
+        "BIRTH_CERTIFICATE",
+        "DRIVER_LICENSE",
+    }
+)
+ALL_PII_TYPES: tuple[str, ...] = (
+    "PER",
+    "PHONE",
+    "ADDRESS",
+    "SNILS",
+    "PASSPORT",
+    "EMAIL",
+    "DATE_BIRTH",
+    "OMS",
+    "INN",
+    "AGE",
+    "WORKPLACE",
+    "MSE",
+    "BIRTH_CERTIFICATE",
+    "DRIVER_LICENSE",
+    "TELEGRAM",
+)
+PII_TYPE_MAP: dict[str, str] = {
+    "ФИО": "PER",
+    "fio": "PER",
+    "per": "PER",
+    "person": "PER",
     "ТЕЛЕФОН": "PHONE",
     "phone": "PHONE",
+    "АДРЕС": "ADDRESS",
+    "address": "ADDRESS",
     "СНИЛС": "SNILS",
     "snils": "SNILS",
     "ПАСПОРТ": "PASSPORT",
     "passport": "PASSPORT",
+    "EMAIL": "EMAIL",
+    "email": "EMAIL",
     "ДАТА_РОЖДЕНИЯ": "DATE_BIRTH",
     "birthdate": "DATE_BIRTH",
     "date_birth": "DATE_BIRTH",
@@ -42,25 +99,35 @@ NUMERIC_TYPE_MAP: dict[str, str] = {
     "inn": "INN",
     "ВОЗРАСТ": "AGE",
     "age": "AGE",
+    "МЕСТО_РАБОТЫ": "WORKPLACE",
+    "workplace": "WORKPLACE",
+    "employer": "WORKPLACE",
     "МСЭ": "MSE",
     "mse": "MSE",
     "СВИДЕТЕЛЬСТВО": "BIRTH_CERTIFICATE",
     "birth_certificate": "BIRTH_CERTIFICATE",
     "ВУ": "DRIVER_LICENSE",
     "driver_license": "DRIVER_LICENSE",
+    "TELEGRAM": "TELEGRAM",
+    "telegram": "TELEGRAM",
 }
 
 DIRECT_IDENTIFIER_TYPES: frozenset[str] = frozenset(
     {
+        "PER",
         "PHONE",
+        "ADDRESS",
         "SNILS",
         "PASSPORT",
+        "EMAIL",
         "DATE_BIRTH",
         "OMS",
         "INN",
+        "WORKPLACE",
         "MSE",
         "BIRTH_CERTIFICATE",
         "DRIVER_LICENSE",
+        "TELEGRAM",
     }
 )
 QUASI_IDENTIFIER_TYPES: frozenset[str] = frozenset({"AGE"})
@@ -162,6 +229,10 @@ class NumericPrediction:
     mention_id: str
 
 
+PIIAnnotation = NumericAnnotation
+PIIPrediction = NumericPrediction
+
+
 @dataclass(frozen=True, slots=True)
 class EvaluatedRecord:
     source: dict[str, object]
@@ -246,6 +317,10 @@ def digits_only(value: str) -> str:
 
 def normalize_whitespace(value: str) -> str:
     return " ".join(value.split())
+
+
+def normalize_entity_text(value: str) -> str:
+    return normalize_whitespace(value).casefold()
 
 
 def tokenize_words(text: str) -> list[str]:
@@ -384,9 +459,12 @@ def extract_digit_segments(text: str) -> tuple[str, ...]:
 @lru_cache(maxsize=None)
 def canonicalize_annotation(pii_type: str, raw_text: str) -> tuple[str, tuple[str, ...], str, str | None]:
     normalized_text: str = normalize_whitespace(raw_text)
+    if pii_type not in NUMERIC_PII_TYPES:
+        return normalized_text, (), "", normalize_entity_text(raw_text)
+
     if pii_type == "DATE_BIRTH":
         parsed_date: str | None = try_parse_date_birth(raw_text)
-        return normalized_text, (), "", parsed_date
+        return normalized_text, (), "", parsed_date or normalize_entity_text(raw_text)
 
     digit_segments: tuple[str, ...] = extract_digit_segments(raw_text)
     digit_sequence: str = "".join(digit_segments)
@@ -421,6 +499,21 @@ def prediction_key(prediction: NumericPrediction) -> tuple[str, str]:
     return prediction.pii_type, prediction.canonical_value
 
 
+def normalize_prediction_value(pii_type: str, raw_value: str) -> str:
+    if pii_type not in NUMERIC_PII_TYPES:
+        return normalize_entity_text(raw_value)
+    normalized_value: str | None = normalize_numeric_pii_value(cast(NumericPIIType, pii_type), raw_value)
+    if normalized_value is not None:
+        return normalized_value
+    digit_sequence: str = "".join(extract_digit_segments(raw_value))
+    if digit_sequence:
+        normalized_value = normalize_numeric_pii_value(cast(NumericPIIType, pii_type), digit_sequence)
+        if normalized_value is not None:
+            return normalized_value
+        return digit_sequence
+    return normalize_entity_text(raw_value)
+
+
 def load_annotations(record: dict[str, object]) -> list[NumericAnnotation]:
     annotations: list[NumericAnnotation] = []
     record_id: int = int(str(record["id"]))
@@ -430,7 +523,7 @@ def load_annotations(record: dict[str, object]) -> list[NumericAnnotation]:
     for annotation in raw_annotations:
         annotation_dict: dict[str, object] = dict(annotation)
         raw_type: str = str(annotation_dict["type"])
-        pii_type: str | None = NUMERIC_TYPE_MAP.get(raw_type)
+        pii_type: str | None = PII_TYPE_MAP.get(raw_type)
         if pii_type is None:
             continue
         raw_text: str = str(annotation_dict["text"])
@@ -457,40 +550,47 @@ def load_annotations(record: dict[str, object]) -> list[NumericAnnotation]:
 def load_predictions(
     record: dict[str, object],
     *,
+    anonymizer: PIIAnonymizer,
+    use_ml: bool,
     deduplicate_repetitions: bool = False,
     normalize_document_numbers: bool = True,
 ) -> tuple[list[NumericPrediction], str, str, str, tuple[int, ...]]:
     record_id: int = int(str(record["id"]))
     text: str = str(record["value"])
     predictions: list[NumericPrediction] = []
-    pipeline_result = run_numeric_pii_pipeline(
+    result = anonymizer(
         text,
+        use_ml=use_ml,
         deduplicate_repetitions=deduplicate_repetitions,
         normalize_document_numbers=normalize_document_numbers,
     )
-    for match in pipeline_result.matches:
+    for mention in result.postprocessed_mentions:
+        pii_type: str = str(mention.entity_type)
+        raw_value: str = str(mention.original_text)
         predictions.append(
             NumericPrediction(
                 record_id=record_id,
-                pii_type=match.pii_type,
-                start=match.start,
-                end=match.end,
-                normalized_start=match.normalized_start,
-                normalized_end=match.normalized_end,
-                raw_value=match.value,
-                canonical_value=match.normalized_value,
-                confidence=match.confidence,
-                rule_id=match.rule_id,
-                entity_id=str(match.metadata.get("entity_id", "")),
-                mention_id=str(match.metadata.get("mention_id", "")),
+                pii_type=pii_type,
+                start=int(mention.original_start),
+                end=int(mention.original_end),
+                normalized_start=int(mention.normalized_start),
+                normalized_end=int(mention.normalized_end),
+                raw_value=raw_value,
+                canonical_value=normalize_prediction_value(pii_type, raw_value),
+                confidence=float(mention.confidence),
+                rule_id=str(mention.rule_id),
+                entity_id=str(mention.entity_id),
+                mention_id=str(mention.mention_id),
             )
         )
     return (
         predictions,
-        pipeline_result.preprocessing_result.normalized_text,
-        pipeline_result.masked_normalized_text,
-        pipeline_result.masked_original_text,
-        pipeline_result.preprocessing_result.repetition_suppressed_indexes,
+        result.preprocessed_text,
+        result.masked_preprocessed_text,
+        result.masked_original_text,
+        result.preprocessing_result.repetition_suppressed_indexes
+        if result.preprocessing_result is not None
+        else (),
     )
 
 
@@ -529,7 +629,7 @@ def generate_soft_keys(
                 if annotation.canonical_value is not None:
                     keys.add((pii_type, annotation.canonical_value))
 
-            if pii_type in {"DATE_BIRTH", "AGE"}:
+            if pii_type not in NUMERIC_PII_TYPES or pii_type in {"DATE_BIRTH", "AGE"}:
                 continue
 
             for start_index in range(len(cluster)):
@@ -553,6 +653,8 @@ def generate_soft_keys(
 def evaluate_hard_negatives(
     records: list[dict[str, object]],
     *,
+    anonymizer: PIIAnonymizer,
+    use_ml: bool,
     normalize_document_numbers: bool,
 ) -> tuple[int, int, dict[str, int]]:
     total: int = 0
@@ -567,20 +669,15 @@ def evaluate_hard_negatives(
             raw_text: str = str(hard_negative_dict["text"])
             category: str = str(hard_negative_dict["category"])
             total += 1
-            if hard_negative_has_match(raw_text, normalize_document_numbers):
+            result = anonymizer(
+                raw_text,
+                use_ml=use_ml,
+                normalize_document_numbers=normalize_document_numbers,
+            )
+            if result.candidates:
                 false_positives += 1
                 per_category_fp[category] += 1
     return total, false_positives, dict(sorted(per_category_fp.items()))
-
-
-@lru_cache(maxsize=None)
-def hard_negative_has_match(raw_text: str, normalize_document_numbers: bool) -> bool:
-    return bool(
-        run_numeric_pii_pipeline(
-            raw_text,
-            normalize_document_numbers=normalize_document_numbers,
-        ).matches
-    )
 
 
 def multiset_match_counts(
@@ -654,7 +751,7 @@ def print_per_type_table(
         f"{'precision':>10} {'recall':>10} {'f1':>10}"
     )
     print(header)
-    for pii_type in sorted(set(NUMERIC_TYPE_MAP.values())):
+    for pii_type in ALL_PII_TYPES:
         tp, fp, fn = per_type_counts.get(pii_type, (0, 0, 0))
         counts = build_metric_counts(
             tp=tp,
@@ -731,6 +828,36 @@ def character_counts_payload(counts: CharacterCounts) -> dict[str, object]:
             "recall": counts.recall,
             "f1": counts.f1,
         },
+    }
+
+
+def ml_counts_payload(counts: Counts) -> dict[str, object]:
+    tp: int = int(getattr(counts, "tp"))
+    fp: int = int(getattr(counts, "fp"))
+    fn: int = int(getattr(counts, "fn"))
+    return {
+        "counts": {
+            "tp": tp,
+            "fp": fp,
+            "fn": fn,
+        },
+        "metrics": {
+            "precision": precision(counts),
+            "recall": recall(counts),
+            "f1": f1(counts),
+            "accuracy": accuracy_without_tn(counts),
+        },
+    }
+
+
+def per_type_payload(per_type_counts: dict[str, tuple[int, int, int]]) -> dict[str, dict[str, int]]:
+    return {
+        pii_type: {
+            "tp": per_type_counts.get(pii_type, (0, 0, 0))[0],
+            "fp": per_type_counts.get(pii_type, (0, 0, 0))[1],
+            "fn": per_type_counts.get(pii_type, (0, 0, 0))[2],
+        }
+        for pii_type in ALL_PII_TYPES
     }
 
 
@@ -866,10 +993,7 @@ def build_exact_span_report(
         hard_negative_false_positives=hard_negative_false_positives,
     )
     payload: dict[str, object] = metric_counts_payload(counts)
-    payload["per_type"] = {
-        pii_type: {"tp": values[0], "fp": values[1], "fn": values[2]}
-        for pii_type, values in sorted(per_type.items())
-    }
+    payload["per_type"] = per_type_payload(per_type)
     return payload
 
 
@@ -893,10 +1017,7 @@ def build_relaxed_span_report(
         hard_negative_false_positives,
     )
     payload: dict[str, object] = metric_counts_payload(counts)
-    payload["per_type"] = {
-        pii_type: {"tp": values[0], "fp": values[1], "fn": values[2]}
-        for pii_type, values in sorted(per_type.items())
-    }
+    payload["per_type"] = per_type_payload(per_type)
     payload["boundary_errors"] = build_boundary_error_report(pairs)
     return payload, pairs
 
@@ -1029,6 +1150,93 @@ def build_type_confusion_matrix(
     return {
         gold_type: dict(sorted(predicted_types.items()))
         for gold_type, predicted_types in sorted(matrix.items())
+    }
+
+
+def annotation_set_from_annotations(
+    text: str,
+    annotations: Sequence[NumericAnnotation],
+    *,
+    record_id: int,
+) -> AnnotationSet:
+    role: Role = Role(name="text", kind=ParticipantKind.UNKNOWN)
+    spans: list[Span] = [
+        Span(
+            line_idx=0,
+            begin=annotation.start,
+            end=annotation.end,
+            label=annotation.pii_type,
+            data=annotation.raw_text,
+        )
+        for annotation in annotations
+        if 0 <= annotation.start < annotation.end <= len(text)
+    ]
+    line: AnnotationSetLine = AnnotationSetLine(idx=0, role=role, spans=spans)
+    return AnnotationSet(lines=(line,), idx=str(record_id))
+
+
+def annotation_set_from_predictions(
+    text: str,
+    predictions: Sequence[NumericPrediction],
+    *,
+    record_id: int,
+) -> AnnotationSet:
+    role: Role = Role(name="text", kind=ParticipantKind.UNKNOWN)
+    spans: list[Span] = [
+        Span(
+            line_idx=0,
+            begin=prediction.start,
+            end=prediction.end,
+            label=prediction.pii_type,
+            data=prediction.raw_value,
+        )
+        for prediction in predictions
+        if 0 <= prediction.start < prediction.end <= len(text)
+    ]
+    line: AnnotationSetLine = AnnotationSetLine(idx=0, role=role, spans=spans)
+    return AnnotationSet(lines=(line,), idx=str(record_id))
+
+
+def build_ml_metric_report(evaluations: Sequence[EvaluatedRecord]) -> dict[str, object]:
+    cases: list[Case] = []
+    predictions: list[AnnotationSet] = []
+    for evaluation in evaluations:
+        source: dict[str, object] = evaluation.source
+        record_id: int = as_int(source["id"])
+        text: str = str(source.get("value", ""))
+        role: Role = Role(name="text", kind=ParticipantKind.UNKNOWN)
+        document: TextDocument = TextDocument(
+            lines=(TextLine(idx=0, role=role, text=text),),
+            sample_id=str(record_id),
+        )
+        target: AnnotationSet = annotation_set_from_annotations(
+            text,
+            evaluation.annotations,
+            record_id=record_id,
+        )
+        prediction: AnnotationSet = annotation_set_from_predictions(
+            text,
+            evaluation.predictions,
+            record_id=record_id,
+        )
+        cases.append(Case(document=document, target=target))
+        predictions.append(prediction)
+
+    cases_tuple: tuple[Case, ...] = tuple(cases)
+    predictions_tuple: tuple[AnnotationSet, ...] = tuple(predictions)
+    return {
+        "entity_hard": ml_counts_payload(
+            aggregate_counts(cases_tuple, predictions_tuple, mode="entity_hard")
+        ),
+        "entity_soft": ml_counts_payload(
+            aggregate_counts(cases_tuple, predictions_tuple, mode="entity_soft")
+        ),
+        "char_hard": ml_counts_payload(
+            aggregate_counts(cases_tuple, predictions_tuple, mode="char_hard")
+        ),
+        "char_soft": ml_counts_payload(
+            aggregate_counts(cases_tuple, predictions_tuple, mode="char_soft")
+        ),
     }
 
 
@@ -1244,6 +1452,8 @@ def load_records(path: Path) -> list[dict[str, object]]:
 def evaluate_records(
     records: list[dict[str, object]],
     *,
+    anonymizer: PIIAnonymizer,
+    use_ml: bool,
     deduplicate_repetitions: bool = False,
     normalize_document_numbers: bool = True,
 ) -> list[EvaluatedRecord]:
@@ -1263,6 +1473,8 @@ def evaluate_records(
             repetition_suppressed_indexes,
         ) = load_predictions(
             record,
+            anonymizer=anonymizer,
+            use_ml=use_ml,
             deduplicate_repetitions=deduplicate_repetitions,
             normalize_document_numbers=normalize_document_numbers,
         )
@@ -1284,6 +1496,8 @@ def build_report(
     evaluations: list[EvaluatedRecord],
     soft_gap: int,
     *,
+    anonymizer: PIIAnonymizer,
+    use_ml: bool,
     normalize_document_numbers: bool = True,
 ) -> dict[str, object]:
     all_annotations: list[NumericAnnotation] = []
@@ -1303,6 +1517,8 @@ def build_report(
     hard_negative_total, hard_negative_false_positives, hard_negative_by_category = (
         evaluate_hard_negatives(
             records,
+            anonymizer=anonymizer,
+            use_ml=use_ml,
             normalize_document_numbers=normalize_document_numbers,
         )
     )
@@ -1357,9 +1573,11 @@ def build_report(
         all_annotations,
         all_predictions,
     )
+    ml_metric_report: dict[str, object] = build_ml_metric_report(evaluations)
 
     return {
         "records": len(evaluations),
+        "pii_types": list(ALL_PII_TYPES),
         "hard_negatives": {
             "total": hard_negative_total,
             "false_positives": hard_negative_false_positives,
@@ -1388,14 +1606,7 @@ def build_report(
             },
             "references": len(all_annotations),
             "predictions": len(all_predictions),
-            "per_type": {
-                pii_type: {
-                    "tp": counts[0],
-                    "fp": counts[1],
-                    "fn": counts[2],
-                }
-                for pii_type, counts in sorted(hard_per_type.items())
-            },
+            "per_type": per_type_payload(hard_per_type),
         },
         "soft": {
             "counts": {
@@ -1413,14 +1624,7 @@ def build_report(
             },
             "references": len(soft_gt_keys),
             "predictions": len(soft_pred_keys),
-            "per_type": {
-                pii_type: {
-                    "tp": counts[0],
-                    "fp": counts[1],
-                    "fn": counts[2],
-                }
-                for pii_type, counts in sorted(soft_per_type.items())
-            },
+            "per_type": per_type_payload(soft_per_type),
         },
         "span": {
             "strict_exact": exact_span_report,
@@ -1429,6 +1633,7 @@ def build_report(
         "character": character_report,
         "privacy_output": privacy_output_report,
         "alignment_projection": alignment_projection_report,
+        "ml_metrics": ml_metric_report,
         "type_confusion_matrix": type_confusion_matrix,
     }
 
@@ -1454,6 +1659,8 @@ def write_instance_files(
     evaluations: list[EvaluatedRecord],
     report: dict[str, object],
     *,
+    ml_model: str | None,
+    use_ml: bool,
     deduplicate_repetitions: bool,
     normalize_document_numbers: bool,
 ) -> None:
@@ -1512,6 +1719,9 @@ def write_instance_files(
         "dataset_path": str(dataset_path),
         "records": len(evaluations),
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "pii_types": list(ALL_PII_TYPES),
+        "ml_model": ml_model,
+        "use_ml": use_ml,
         "deduplicate_repetitions": deduplicate_repetitions,
         "normalize_document_numbers": normalize_document_numbers,
         "files": {
@@ -1533,7 +1743,7 @@ def write_instance_files(
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Evaluate numeric PII extraction on a JSONL dataset with hard and soft metrics. "
+            "Evaluate PII extraction on a JSONL dataset with all 15 presentation entity types. "
             "Hard metrics are mention-level multiset matches. Soft metrics deduplicate per record "
             "and additionally merge nearby numeric fragments into canonical entities."
         )
@@ -1570,9 +1780,19 @@ def main() -> int:
         "--deduplicate-repetitions",
         action="store_true",
         help=(
-            "Enable the ASR repetition deduplication stage before numeric PII extraction. "
+            "Enable the ASR repetition deduplication stage before PII extraction. "
             "This is off by default because it changes the evaluated text layer."
         ),
+    )
+    parser.add_argument(
+        "--ml-model",
+        default=None,
+        help="Optional ML model id for non-numeric PII, for example natasha_per, GLiNER2, Qwen06B.",
+    )
+    parser.add_argument(
+        "--use-ml",
+        action="store_true",
+        help="Enable ML detection. Defaults to natasha_per if --ml-model is not provided.",
     )
     parser.add_argument(
         "--no-document-number-normalization",
@@ -1585,25 +1805,35 @@ def main() -> int:
     args = parser.parse_args()
 
     normalize_document_numbers: bool = not args.no_document_number_normalization
+    ml_model: str | None = str(args.ml_model) if args.ml_model is not None else None
+    if args.use_ml and ml_model is None:
+        ml_model = "natasha_per"
+    use_ml: bool = bool(args.use_ml or ml_model is not None)
+    anonymizer = PIIAnonymizer(ml_model=ml_model)
     dataset_path = Path(args.jsonl_path)
     records = load_records(dataset_path)
     evaluations = evaluate_records(
         records,
+        anonymizer=anonymizer,
+        use_ml=use_ml,
         deduplicate_repetitions=args.deduplicate_repetitions,
         normalize_document_numbers=normalize_document_numbers,
     )
     report = build_report(
         evaluations,
         soft_gap=args.soft_gap,
+        anonymizer=anonymizer,
+        use_ml=use_ml,
         normalize_document_numbers=normalize_document_numbers,
     )
-    report = build_report(evaluations, soft_gap=args.soft_gap)
     instance_dir = build_instance_dir(Path(args.instance_root))
     write_instance_files(
         instance_dir,
         dataset_path,
         evaluations,
         report,
+        ml_model=ml_model,
+        use_ml=use_ml,
         deduplicate_repetitions=args.deduplicate_repetitions,
         normalize_document_numbers=normalize_document_numbers,
     )
@@ -1619,6 +1849,7 @@ def main() -> int:
     strict_span_report: Mapping[str, object] = as_mapping(span_report["strict_exact"])
     relaxed_span_report: Mapping[str, object] = as_mapping(span_report["relaxed_overlap"])
     character_report: Mapping[str, object] = as_mapping(report["character"])
+    ml_metric_report: Mapping[str, object] = as_mapping(report["ml_metrics"])
     privacy_output: Mapping[str, object] = as_mapping(report["privacy_output"])
     alignment_projection: Mapping[str, object] = as_mapping(report["alignment_projection"])
     hard_negative_false_positives: int = as_int(hard_negatives_report["false_positives"])
@@ -1626,6 +1857,9 @@ def main() -> int:
     print(f"dataset: {dataset_path}")
     print(f"instance: {instance_dir}")
     print(f"records: {report['records']}")
+    print(f"pii types: {len(ALL_PII_TYPES)}")
+    print(f"ml model: {ml_model or '<disabled>'}")
+    print(f"use ml: {use_ml}")
     print(f"deduplicate repetitions: {args.deduplicate_repetitions}")
     print(f"normalize document numbers: {normalize_document_numbers}")
     print(
@@ -1664,6 +1898,18 @@ def main() -> int:
             f"  {bucket:<6} precision={format_ratio(as_float(bucket_metrics['precision']))} "
             f"recall={format_ratio(as_float(bucket_metrics['recall']))} "
             f"f1={format_ratio(as_float(bucket_metrics['f1']))}"
+        )
+    print()
+
+    print("ml metric utils")
+    for metric_name in ("entity_hard", "entity_soft", "char_hard", "char_soft"):
+        metric_report: Mapping[str, object] = as_mapping(ml_metric_report[metric_name])
+        metric_values: Mapping[str, object] = as_mapping(metric_report["metrics"])
+        print(
+            f"  {metric_name:<11} precision={format_ratio(as_float(metric_values['precision']))} "
+            f"recall={format_ratio(as_float(metric_values['recall']))} "
+            f"f1={format_ratio(as_float(metric_values['f1']))} "
+            f"accuracy={format_ratio(as_float(metric_values['accuracy']))}"
         )
     print()
 
