@@ -144,6 +144,20 @@ class PIDRModelAndTrainingTests(unittest.TestCase):
 
         self.assertIsInstance(model, PIDRModel)
 
+    def test_fine_tuned_pidr_model_is_a_separate_registered_wrapper(self) -> None:
+        tokenizer = _FakeInferenceTokenizer(offsets=[(0, 0), (0, 4)])
+        fake_model = _FakeModel(id2label={0: "O", 1: "B-full_name"}, prediction_ids=[0, 1])
+
+        model = build_model(
+            ModelConfig(
+                id="PIDR_finetuned",
+                params={"tokenizer": tokenizer, "model": fake_model, "device": "cpu"},
+            )
+        )
+
+        self.assertIsInstance(model, FineTunedPIDRModel)
+        self.assertNotIsInstance(model, PIDRModel)
+
     def test_training_span_selection_prefers_longer_overlapping_entities(self) -> None:
         spans: list[Span] = [
             Span(line_idx=0, begin=0, end=4, label="first_name", data="Иван"),

@@ -71,6 +71,7 @@ _CONTEXTUAL_DISCOURSE_MARKERS: Final[frozenset[str]] = frozenset(
 )
 
 _PHRASE_FILLERS: Final[tuple[tuple[str, ...], ...]] = (
+    ("добрый", "день"),
     ("как", "бы"),
     ("это", "самое"),
     ("так", "сказать"),

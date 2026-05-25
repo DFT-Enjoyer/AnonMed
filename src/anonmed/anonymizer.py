@@ -505,9 +505,9 @@ class PIIAnonymizer:
         if not config.enabled:
             return ()
 
-        from anonmed.anonymization import candidate_from_numeric_match, collect_numeric_pii_candidates
+        from anonmed.anonymization import candidate_from_numeric_match, find_numeric_pii
 
-        matches: tuple[Any, ...] = collect_numeric_pii_candidates(text, rules=rules)
+        matches: tuple[Any, ...] = find_numeric_pii(text, rules=rules)
         if config.pii_types is not None:
             allowed_types: frozenset[str] = frozenset(config.pii_types)
             matches = tuple(match for match in matches if match.pii_type in allowed_types)
