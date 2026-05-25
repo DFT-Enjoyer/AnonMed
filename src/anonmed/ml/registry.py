@@ -127,6 +127,20 @@ def _build_gt_asr(config: DatasetConfig) -> Dataset:
         ) from error
 
 
+def _build_final_with_newlines(config: DatasetConfig) -> Dataset:
+    from anonmed.ml.data.final_with_newlines import FinalWithNewlinesDataset
+
+    params = dict(config.params)
+    if "span_labels" in params and isinstance(params["span_labels"], list):
+        params["span_labels"] = tuple(str(value) for value in params["span_labels"])
+    try:
+        return FinalWithNewlinesDataset(**params)
+    except TypeError as error:
+        raise RegistryError(
+            f"Invalid params for dataset {config.id!r}: {dict(config.params)!r}"
+        ) from error
+
+
 def _build_natasha_per_model(config: ModelConfig) -> PIIModel:
     from anonmed.ml.models.natasha_per import NatashaPERModel
 
@@ -198,6 +212,7 @@ DATASET_BUILDERS = {
     InTheWildNewsEntityDataset.name: _in_the_wild_dataset_builder(InTheWildNewsEntityDataset),
     "russian_pii_66k": _build_russian_pii_dataset,
     "gt_asr": _build_gt_asr,
+    "final_with_newlines": _build_final_with_newlines,
 }
 
 MODEL_BUILDERS = {

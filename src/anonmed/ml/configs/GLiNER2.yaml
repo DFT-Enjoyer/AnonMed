@@ -8,11 +8,11 @@ run:
 
 dataset:
   # Identifier registered in DATASET_BUILDERS (see registry.py).
-  # id: "russian_pii_66k"
-  id: "gt_asr"
+  id: "russian_pii_66k"
+  # id: "final_with_newlines"
   # Parameters passed to the dataset constructor (e.g., RussianPIIDataset).
   params:
-    sample_size: 49        # number of examples to load
+    sample_size: 2500        # number of examples to load
     random_seed: 1543          # for reproducibility
 
 model:

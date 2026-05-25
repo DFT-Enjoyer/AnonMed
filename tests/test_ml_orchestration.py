@@ -348,6 +348,52 @@ class MLOrchestrationTests(unittest.TestCase):
         self.assertEqual(spans[0].begin, 8)
         self.assertEqual(spans[0].end, 19)
 
+    def test_final_with_newlines_dataset_loads_name_spans_as_per_spans(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            dataset_path = Path(directory) / "final_with_newlines.jsonl"
+            row = {
+                "id": 11,
+                "text": "строка\nиванов иван пришел",
+                "spans": [
+                    {
+                        "begin": 7,
+                        "end": 18,
+                        "label": "name",
+                        "data": "иванов иван",
+                    },
+                    {
+                        "begin": 19,
+                        "end": 25,
+                        "label": "passport",
+                        "data": "пришел",
+                    },
+                ],
+            }
+            dataset_path.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+            config = pipeline_config_from_mapping(
+                {
+                    "dataset": {
+                        "id": "final_with_newlines",
+                        "params": {"path": str(dataset_path)},
+                    },
+                    "model": "example",
+                    "metrics": ["example_count"],
+                }
+            )
+
+            dataset = build_dataset(config.dataset)
+
+        self.assertEqual(len(dataset.cases), 1)
+        case = dataset.cases[0]
+        self.assertEqual(case.document.sample_id, "11")
+        self.assertEqual(case.document.lines[0].text, "строка\nиванов иван пришел")
+        spans = case.target.lines[0].spans
+        self.assertEqual(len(spans), 1)
+        self.assertEqual(spans[0].label, "PER")
+        self.assertEqual(spans[0].data, "иванов иван")
+        self.assertEqual(spans[0].begin, 7)
+        self.assertEqual(spans[0].end, 18)
+
     def test_run_instance_dir_uses_fixed_utc_plus_three_timestamp(self) -> None:
         config = pipeline_config_from_mapping(
             {
