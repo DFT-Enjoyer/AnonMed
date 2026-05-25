@@ -113,6 +113,20 @@ def _build_russian_pii_dataset(config: DatasetConfig) -> Dataset:
     return RussianPIIDataset(sample_size=sample_size, random_seed=random_seed)
 
 
+def _build_gt_asr(config: DatasetConfig) -> Dataset:
+    from anonmed.ml.data.gt_asr import GTASRDataset
+
+    params = dict(config.params)
+    if "annotation_types" in params and isinstance(params["annotation_types"], list):
+        params["annotation_types"] = tuple(str(value) for value in params["annotation_types"])
+    try:
+        return GTASRDataset(**params)
+    except TypeError as error:
+        raise RegistryError(
+            f"Invalid params for dataset {config.id!r}: {dict(config.params)!r}"
+        ) from error
+
+
 def _build_natasha_per_model(config: ModelConfig) -> PIIModel:
     from anonmed.ml.models.natasha_per import NatashaPERModel
 
@@ -183,6 +197,7 @@ DATASET_BUILDERS = {
     ),
     InTheWildNewsEntityDataset.name: _in_the_wild_dataset_builder(InTheWildNewsEntityDataset),
     "russian_pii_66k": _build_russian_pii_dataset,
+    "gt_asr": _build_gt_asr,
 }
 
 MODEL_BUILDERS = {

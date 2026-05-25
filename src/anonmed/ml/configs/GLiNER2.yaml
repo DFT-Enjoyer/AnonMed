@@ -8,10 +8,11 @@ run:
 
 dataset:
   # Identifier registered in DATASET_BUILDERS (see registry.py).
-  id: "russian_pii_66k"
+  # id: "russian_pii_66k"
+  id: "gt_asr"
   # Parameters passed to the dataset constructor (e.g., RussianPIIDataset).
   params:
-    sample_size: 5000        # number of examples to load
+    sample_size: 49        # number of examples to load
     random_seed: 1543          # for reproducibility
 
 model:
@@ -27,7 +28,7 @@ model:
       person-name span as one entity; do not split it into surname, given name,
       patronymic, or initials. Do not extract organizations, job titles, medical
       roles, addresses, document numbers, phone numbers, dates, or other non-person PII.
-    threshold: 0.6
+    threshold: 0.8
 
 metrics:
   # List of metrics to compute. Each can be a string (id only) or a mapping with params.
@@ -36,6 +37,12 @@ metrics:
   - id: "entity_hard_precision"
     params: {}
   - id: "entity_hard_recall"
+    params: {}
+  - id: "entity_soft_f1"
+    params: {}
+  - id: "entity_soft_precision"
+    params: {}
+  - id: "entity_soft_recall"
     params: {}
   - id: "coverage_percent"
     params: {}

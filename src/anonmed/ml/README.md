@@ -46,13 +46,21 @@
 
 Пайплайн `example.py` запускается командой `python3 -m anonmed.ml.pipelines.example src/anonmed/ml/configs/example.yaml` из корня проекта.
 
+Обычная оценка GLiNER2 запускается так:
+
+```bash
+python3 -m anonmed.ml.pipelines.GLiNER2 --config src/anonmed/ml/configs/GLiNER2.yaml
+```
+
+В конце pipeline печатает несколько FP/FN примеров для ручной проверки; количество меняется через `--error-examples 10`, отключается через `--error-examples 0`.
+
 Подбор threshold и entity prompt для GLiNER2 через Optuna запускается так:
 
 ```bash
 python3 -m anonmed.ml.pipelines.GLiNER2_TrH_Tests --config src/anonmed/ml/configs/GLiNER2.yaml
 ```
 
-По умолчанию используется exhaustive Optuna `GridSampler` по сетке threshold'ов и prompt'ов. Пайплайн выбирает trial с максимальным `entity_hard_precision` при `entity_hard_recall >= 0.9`, сохраняет лучший `report.json` и полный `trials.json` в `instance/<run.name>_threshold_search/.../`. Для стохастического поиска можно явно указать, например, `--sampler tpe --n-trials 30`.
+По умолчанию используется exhaustive Optuna `GridSampler` по сетке threshold'ов и prompt'ов. Пайплайн выбирает trial с максимальным `entity_hard_precision` при `entity_hard_recall >= 0.9`, сохраняет лучший `report.json` и полный `trials.json` в `instance/<run.name>_threshold_search/.../`. В конце он печатает несколько FP/FN примеров для ручной проверки; количество меняется через `--error-examples 10`, отключается через `--error-examples 0`. Для стохастического поиска можно явно указать, например, `--sampler tpe --n-trials 30`.
 
 Результаты запуска сохраняются в отдельную директорию внутри `outputs.instance_dir`:
 
