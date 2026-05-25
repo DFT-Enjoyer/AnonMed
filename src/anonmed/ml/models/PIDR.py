@@ -44,7 +44,7 @@ class _SpanDraft:
     scores: tuple[float, ...]
 
 
-class PIDRModel(PIIModel):
+class _BasePIDRModel(PIIModel):
     def __init__(
         self,
         *,
@@ -146,7 +146,27 @@ class PIDRModel(PIIModel):
         )
 
 
-class FineTunedPIDRModel(PIDRModel):
+class PIDRModel(_BasePIDRModel):
+    def __init__(
+        self,
+        *,
+        model_path: str | Path = DEFAULT_MODEL_PATH,
+        output_label_mapping: Mapping[str, str] | None = None,
+        **kwargs: Any,
+    ) -> None:
+        resolved_label_mapping: Mapping[str, str] = (
+            DEFAULT_PIDR_LABEL_MAPPING
+            if output_label_mapping is None
+            else output_label_mapping
+        )
+        super().__init__(
+            model_path=model_path,
+            output_label_mapping=resolved_label_mapping,
+            **kwargs,
+        )
+
+
+class FineTunedPIDRModel(_BasePIDRModel):
     def __init__(
         self,
         *,

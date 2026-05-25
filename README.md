@@ -393,23 +393,6 @@ print(result.annotation)
 masked_text = runner("Пациент Иванов Иван Иванович пришел.")
 ```
 
-### `anonmed.api`
-
-HTTP API на FastAPI. Сейчас покрывает preprocessing endpoints:
-
-- `/v1/asr-integer/parse`
-- `/v1/asr-integer/punctuation-clean`
-- `/v1/asr-integer/run`
-- `/v1/preprocessing/asr/parse`
-- `/v1/preprocessing/asr/punctuation-clean`
-- `/v1/preprocessing/asr/run`
-
-Запуск:
-
-```bash
-uvicorn anonmed.api:create_app --factory
-```
-
 ### `anonmed.cli`
 
 CLI entrypoint для preprocessing и anonymization:
@@ -427,12 +410,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
 .venv/bin/python -m pytest
-```
-
-Для HTTP API:
-
-```bash
-pip install -e .[api]
 ```
 
 Для ML-компонентов:
@@ -472,20 +449,8 @@ pip install -e .[ml]
   зависит от нормализации ASR.
 - Rule-based numeric PII остаётся интерпретируемым и хорошо отлаживаемым.
 - ML-часть подключается как дополнительный слой, прежде всего для нечисловых сущностей.
-- HTTP API пока не предоставляет отдельный endpoint анонимизации; новый anonymization pipeline
-  доступен через Python API и CLI.
-
-## Рекомендуемый Workflow Для Отладки
-
-1. Проверить `result.preprocessing_result.normalized_text`.
-2. Проверить `result.rule_candidates`.
-3. Если включён ML, проверить `result.ml_candidates`.
-4. Проверить `result.candidates` после merge.
-5. Проверить `result.postprocessed_mentions` и `result.masked_original_text`.
-
-Обычно этого достаточно, чтобы понять, на каком этапе возникла ошибка.
 
 
-## Датасеты
+## Датасеты и модели
 
 https://disk.360.yandex.ru/d/m4rh5c9qIxh3rg

@@ -1,0 +1,41 @@
+run:
+  name: PIDR_finetuned_in_the_wild_russian_pii_speech
+
+dataset:
+  id: in_the_wild_russian_pii_speech
+  params:
+    representation: letters
+
+model:
+  id: PIDR_finetuned
+  params:
+    model_path: models/PIDR_finetuned_in_the_wild_russian_pii_speech
+    base_model_path: models/PIDR
+    max_length: 512
+
+metrics:
+  - id: entity_hard_f1
+    params: {}
+  - id: entity_hard_precision
+    params: {}
+  - id: entity_hard_recall
+    params: {}
+  - id: entity_soft_f1
+    params:
+      threshold: 0.5
+  - id: char_soft_f1
+    params: {}
+  - id: coverage_percent
+    params: {}
+
+training:
+  enabled: false
+
+evaluation:
+  enabled: true
+
+outputs:
+  instance_dir: instance
+  report_filename: report.json
+  write_dataset_snapshot_json: false
+  write_dataset_snapshot_parquet: false
