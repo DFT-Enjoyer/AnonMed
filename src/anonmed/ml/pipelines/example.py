@@ -4,6 +4,7 @@ from pathlib import Path
 from anonmed.ml.config import load_pipeline_config
 from anonmed.ml.factory import create_dataset_snapshot_writer, evaluate
 from anonmed.ml.outputs import build_run_instance_dir
+from anonmed.ml.pipelines.terminal import print_metrics_block
 from anonmed.ml.registry import build_pipeline_components
 
 
@@ -37,8 +38,7 @@ def main() -> None:
         writer.write_json(components.dataset, snapshot_path)
 
     print(f"Report saved to {report_path}")
-    for name, values in report.metrics.items():
-        print(f"{name}: {values}")
+    print_metrics_block(report.metrics)
 
 
 if __name__ == "__main__":

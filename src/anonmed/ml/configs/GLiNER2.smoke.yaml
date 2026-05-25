@@ -1,0 +1,60 @@
+# Smoke-test configuration for the GLiNER2 threshold-search pipeline.
+# Run a tiny end-to-end check before launching the full VM job:
+#   python -m anonmed.ml.pipelines.GLiNER2_TrH_Tests \
+#     --config src/anonmed/ml/configs/GLiNER2.smoke.yaml \
+#     --n-trials 1 \
+#     --threshold-min 0.6 \
+#     --threshold-max 0.6 \
+#     --threshold-step 0.05
+
+run:
+  name: "GLiNER2_smoke"
+
+dataset:
+  id: "russian_pii_66k"
+  params:
+    sample_size: 5
+    random_seed: 1543
+
+model:
+  id: "GLiNER2"
+  params:
+    entity_name: "person"
+    entity_description: >
+      Full personal name of an individual in Russian text, also known as Russian ФИО.
+      Extract the complete contiguous mention of a person's surname, given name, and
+      patronymic when present, for example Иванов Иван Иванович. Return the whole
+      person-name span as one entity; do not split it into surname, given name,
+      patronymic, or initials. Do not extract organizations, job titles, medical
+      roles, addresses, document numbers, phone numbers, dates, or other non-person PII.
+    threshold: 0.6
+
+metrics:
+  - id: "entity_hard_f1"
+    params: {}
+  - id: "entity_hard_precision"
+    params: {}
+  - id: "entity_hard_recall"
+    params: {}
+  - id: "entity_soft_f1"
+    params: {}
+  - id: "entity_soft_precision"
+    params: {}
+  - id: "entity_soft_recall"
+    params: {}
+  - id: "coverage_percent"
+    params: {}
+
+training:
+  enabled: false
+  trainer: null
+  params: {}
+
+evaluation:
+  enabled: true
+
+outputs:
+  instance_dir: "instance"
+  report_filename: "report.json"
+  write_dataset_snapshot_json: true
+  write_dataset_snapshot_parquet: false

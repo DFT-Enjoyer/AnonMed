@@ -22,7 +22,7 @@ model:
       # Russian full personal name / ФИО: a contiguous mention of an individual person's name in Russian text. Extract only the name tokens themselves, including surname, given name, patronymic, and initials when present. Valid spans include Иванов Иван Иванович, Иванов Иван, Иван Иванович, Иванов И. И., И. И. Иванов, and single-token surnames when they clearly denote a person. Exclude titles, roles, medical roles, kinship words, organizations, addresses, dates, document numbers, phone numbers, and surrounding context. The span must start at the first name token and end at the last name token; do not include words like пациент, врач, доктор, гражданин, представитель, клиент, ФИО, имя, фамилия, отчество, or punctuation around the name.
     entity_name: "person"
     entity_description: >
-      Russian full personal name / ФИО: a contiguous mention of an individual person's name in Russian text. Extract only the name tokens themselves, including surname, given name, patronymic, and initials when present. Valid spans include Иванов Иван Иванович, Иванов Иван, Иван Иванович, Иванов И. И., И. И. Иванов, and single-token surnames when they clearly denote a person. Exclude titles, roles, medical roles, kinship words, organizations, addresses, dates, document numbers, phone numbers, and surrounding context. The span must start at the first name token and end at the last name token; do not include words like пациент, врач, доктор, гражданин, представитель, клиент, ФИО, имя, фамилия, отчество, or punctuation around the name.    threshold: 0.85
+      Russian full personal name / ФИО: a contiguous mention of an individual person's name in Russian text. Extract only the name tokens themselves, including surname, given name, patronymic, and initials when present. Valid spans include Иванов Иван Иванович, Иванов Иван, Иван Иванович, Иванов И. И., И. И. Иванов, and single-token surnames when they clearly denote a person. Exclude titles, roles, medical roles, kinship words, organizations, addresses, dates, document numbers, phone numbers, and surrounding context. The span must start at the first name token and end at the last name token; do not include words like пациент, врач, доктор, гражданин, представитель, клиент, ФИО, имя, фамилия, отчество, or punctuation around the name.
       Russian ФИО / person name: extract all contiguous mentions of a person's name in Russian text, including full names, partial names, surnames, given-name plus patronymic, surname plus initials, and initials plus surname. Extract only the name itself, not surrounding roles, labels, titles, or context words. If a phrase contains both a role and a name, return only the name span. Do not extract organizations, addresses, dates, phones, document numbers, or non-person entities.
     threshold: 0.8
 
@@ -33,6 +33,12 @@ metrics:
   - id: "entity_hard_precision"
     params: {}
   - id: "entity_hard_recall"
+    params: {}
+  - id: "entity_soft_f1"
+    params: {}
+  - id: "entity_soft_precision"
+    params: {}
+  - id: "entity_soft_recall"
     params: {}
   - id: "coverage_percent"
     params: {}
